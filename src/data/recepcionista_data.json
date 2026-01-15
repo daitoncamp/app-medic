@@ -1,0 +1,9 @@
+{
+  "pacientes": [],
+  "citas": [],
+  "estadisticas": {
+    "total": 0,
+    "pendientes": 0,
+    "confirmadas": 0
+  }
+}

@@ -1,0 +1,58 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export function useAuth() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [errorGeneral, setErrorGeneral] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [shake, setShake] = useState(false);
+
+  // Añadimos 'requiredRole' para saber desde qué interfaz nos llaman
+  const login = (email, password, requiredRole) => {
+    setErrorGeneral('');
+    setFieldErrors({ email: '', password: '' });
+
+    if (!email.trim() || !password.trim()) {
+      setFieldErrors({
+        email: !email ? "Este campo no puede estar vacío" : "",
+        password: !password ? "Este campo no puede estar vacío" : ""
+      });
+      triggerShake();
+      return;
+    }
+
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+
+      // 1. Definimos los usuarios válidos
+      const users = {
+        "recepcionista@live.uleam.edu.ec": { pass: "1234", rol: "Recepcionista", path: "/recepcionista-dashboard" },
+        "enfermera@live.uleam.edu.ec": { pass: "1234", rol: "Enfermera", path: "/enfermera-dashboard" },
+        "odontologa@live.uleam.edu.ec": { pass: "1234", rol: "Odontologa", path: "/odontologa-dashboard" }
+      };
+
+      const user = users[email];
+
+      // 2. Validamos: 
+      // ¿Existe el usuario? ¿La clave es correcta? ¿Es el rol permitido para ESTA interfaz?
+      if (user && user.pass === password && user.rol === requiredRole) {
+        sessionStorage.setItem("rol", user.rol);
+        navigate(user.path);
+      } else {
+        // Si el usuario existe pero el rol no coincide, o la clave está mal
+        setErrorGeneral("Credenciales incorrectas para este acceso.");
+        triggerShake();
+      }
+    }, 2000);
+  };
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+  };
+
+  return { login, loading, errorGeneral, fieldErrors, shake };
+}

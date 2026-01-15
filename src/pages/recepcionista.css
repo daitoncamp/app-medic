@@ -1,0 +1,729 @@
+/* ===== Estilo de letras ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+/* ===== FONDO GENERAL ===== */
+body {
+  background-color: #fff5f5;
+  color: #1a2b4c;
+}
+
+/* === MENSAJE DE BIENVENIDA (TOAST) === */
+.toast-bienvenida {
+  position: fixed;
+  top: 20px;
+  right: 420px;
+  background: linear-gradient(135deg, #004aad, #ffffe9);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(-20px);
+  animation: toastIn 0.5s forwards;
+  font-size: 0.95rem;
+}
+
+@keyframes toastIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e9f0ff;
+  padding: 50px 600px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.icon-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 26px;
+}
+
+.icon-circle.blue {
+  background-color: #3b82f6;
+}
+
+.header-info h1 {
+  font-size: 1.5rem;
+  color: #004aad;
+}
+
+.header-info p {
+  color: #4b5563;
+}
+
+.logout-link {
+  text-decoration: none;
+  color: #1a2b4c;
+  font-weight: 500;
+}
+
+.logout-link i {
+  margin-right: 6px;
+}
+
+
+/* ============================
+   Esta es para la imagen
+   ============================ */
+.logo-image {
+  position: absolute;         /* Coloca el logo sobre el fondo */
+  top: 25px;                  /* Ajusta distancia desde arriba */
+  left: 20px;                 /* Ajusta desde la izquierda */
+  width: 140px;               /* Tamaño visible del logo */
+  height: auto;               /* Mantiene proporción */
+  z-index: 100;               /* Hace que esté encima de otros elementos */
+  opacity: 0.9;               /* Suaviza la integración visual */
+}
+
+/* ===== CITAS DEL DÍA ===== */
+.appointments-section {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  width: 90%;
+  margin: 0 auto 30px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header h2 {
+  color: #1a2b4c;
+  font-size: 1.3rem;
+}
+
+.new-appointment-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.new-appointment-btn:hover {
+  background-color: #2563eb;
+}
+
+.date {
+  color: #6b7280;
+  margin-top: 5px;
+  margin-bottom: 15px;
+}
+
+/* ===== BUSCADOR ===== */
+.search-bar {
+  display: flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+}
+
+.search-bar i {
+  color: #9ca3af;
+  margin-right: 18px;
+}
+
+.search-bar input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+/* ===== TABLA DE CITAS ===== */
+.appointments-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.appointments-table th,
+.appointments-table td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.appointments-table th {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.status.confirmed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.status.pending {
+  background-color: #fef9c3;
+  color: #854d0e;
+}
+
+.actions button {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-right: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.actions button:hover {
+  background-color: #f3f4f6;
+}
+
+/* ===== ESTADÍSTICAS Y REGISTRO ===== */
+.stats-and-form {
+  display: flex;
+  justify-content: space-around;
+  width: 90%;
+  margin: 0 auto 40px;
+  gap: 30px;
+}
+
+.stats, .register-form {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  flex: 1;
+}
+
+.stats h3, .register-form h3 {
+  margin-bottom: 15px;
+  color: #1a2b4c;
+}
+
+.stat-box {
+  background-color: #f9fafb;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 12px;
+}
+
+.stat-box.total {
+  background-color: #e0f2fe;
+}
+
+.stat-box.confirmed {
+  background-color: #dcfce7;
+}
+
+.stat-box.pending {
+  background-color: #fef9c3;
+}
+
+.stat-box p {
+  margin-bottom: 6px;
+  color: #4b5563;
+}
+
+/* ===== FORMULARIO DE REGISTRO ===== */
+.register-form label {
+  font-weight: 500;
+  display: block;
+  margin-top: 10px;
+  color: #1a2b4c;
+}
+
+.register-form input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f5f6fa;
+}
+
+.register-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  margin-top: 15px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.register-btn:hover {
+  background-color: #2563eb;
+  transform: scale(1.05);
+}
+
+/* === Estilo uniforme para los campos select (como Sexo) === */
+.register-form select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f5f6fa;
+  font-size: 0.95rem;
+  color: #1a2b4c;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.register-form select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+/* ===== CERRAR SESIÓN DERECHA ===== */
+.header {
+  position: relative;
+  justify-content: center;
+}
+
+.header-right {
+  position: absolute;
+  right: 80px;
+  top: 75px;
+}
+
+
+/* === FORMULARIO DENTRO DEL MODAL === */
+#appointmentForm {
+  margin-top: 20px;
+}
+
+#appointmentForm label {
+  display: block;
+  margin-top: 10px;
+  color: #1a2b4c;
+  font-weight: 500;
+}
+
+#appointmentForm input,
+#appointmentForm select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f5f6fa;
+}
+
+.row {
+  display: flex;
+  gap: 15px;
+}
+
+.col {
+  flex: 1;
+}
+
+.submit-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.submit-btn:hover {
+  background-color: #2563eb;
+  transform: scale(1.05);
+}
+
+
+.success-msg {
+  color: #2ecc71;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 10px;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+  transition: opacity 0.5s ease;
+}
+
+.error-msg {
+  color: #e63946;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 4px;
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.shake {
+  animation: shake 0.3s;
+  border: 1.5px solid #e63946 !important;
+  background-color: #ffecec;
+}
+
+
+/*Descargar reportes*/
+.download-json-btn {
+  background-color: #2563eb; /* azul sistema */
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.download-json-btn i {
+  font-size: 1rem;
+}
+
+.download-json-btn:hover {
+  background-color: #1d4ed8;
+  transform: scale(1.05);
+}
+
+
+
+
+
+/* =====================================================
+   🔥 MODALES – ADAPTADOS A REACT Y A TUS IMÁGENES 🔥
+===================================================== */
+
+/* ===== FONDO MODAL ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ===== CONTENIDO MODAL GENERAL ===== */
+.modal-content {
+  background: #fff;
+  border-radius: 15px;
+  padding: 30px;
+  width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  animation: popIn 0.3s ease forwards;
+  position: relative;
+}
+
+/* ===== ANIMACIÓN ===== */
+@keyframes modalPop {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ===== CERRAR (X) ===== */
+.close-modal {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  font-size: 22px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.close-modal:hover {
+  color: #1a2b4c;
+}
+
+/* ===== FORMULARIO MODAL ===== */
+#appointmentForm label {
+  margin-top: 12px;
+  display: block;
+  font-weight: 500;
+}
+
+#appointmentForm input,
+#appointmentForm select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+}
+
+/* ===== GRID FECHA/HORA ===== */
+.row {
+  display: flex;
+  gap: 15px;
+}
+
+/* =====================================================
+   🔴 MODAL CERRAR SESIÓN (ESTILO SEGUNDA IMAGEN)
+===================================================== */
+
+#logoutModal {
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 52, 128, 0.3); /* fondo azul translúcido */
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#logoutModal.show {
+  opacity: 1;
+}
+
+.logout-modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 30px 25px;
+  text-align: center;
+  width: 380px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+#logoutModal.show .logout-modal {
+  transform: scale(1);
+}
+
+.logout-modal h2 {
+  color: #1a2b4c;
+  margin-bottom: 10px;
+}
+
+.logout-modal p {
+  color: #4b5563;
+  margin-bottom: 25px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 15px;
+}
+
+.cancel-btn,
+.confirm-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn {
+  background-color: #e5e7eb;
+  color: #1a2b4c;
+}
+
+.cancel-btn:hover {
+  background-color: #d1d5db;
+}
+
+.confirm-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background-color: #dc2626;
+}
+
+
+
+/* ===== ESTILOS ADICIONALES PARA CONFIRMAR CITA ===== */
+
+/* Botón de confirmar en la tabla */
+.btn-confirm {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  margin-right: 5px;
+}
+
+.btn-confirm:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Contenedor del checkbox de confirmar */
+.confirm-checkbox-container {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.confirm-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: #166534;
+  gap: 10px;
+}
+
+.confirm-checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #10b981;
+}
+
+.confirm-checkbox-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.confirm-icon {
+  color: #10b981;
+  font-size: 18px;
+}
+
+.confirm-checkbox-hint {
+  display: block;
+  margin-top: 8px;
+  margin-left: 30px;
+  font-size: 13px;
+  color: #065f46;
+  font-style: italic;
+}
+
+/* Estado confirmada en la tabla */
+.status.confirmada {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.status.pendiente {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-block;
+}
+
+/* Animación al confirmar */
+@keyframes confirmarSuccess {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.btn-confirm:active {
+  animation: confirmarSuccess 0.3s ease;
+}
+
+
+
+

@@ -1,0 +1,236 @@
+/* ===== RESET ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+
+
+/* Cambia el 'body' por esto */
+.recepcionista-scope.login-screen {
+  min-height: 100vh;      /* Cubre todo el alto de la pantalla */
+  width: 100vw;           /* Cubre todo el ancho */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  /* Fondo Azul para Recepcionista */
+  background: linear-gradient(180deg, #f5f8ff 0%, #e9f0ff 100%);
+}
+
+/* ============================
+   Esta es para la imagen
+   ============================ */
+.logo-image {
+  position: absolute; /* Fija la imagen en la esquina */
+  top: 10px;          /* 🔹 Cambia esta línea para ajustar la distancia desde arriba */
+  left: 25px;         /* 🔹 Cambia esta línea para ajustar la distancia desde la izquierda */
+
+  width: 200px;       /* 🔹 Cambia esta línea para modificar el tamaño de la imagen */
+  height: auto;       /* 🔹 Cambia esta línea si quieres una altura fija */
+
+  opacity: 0.8;       /* 🔹 Cambia esta línea para ajustar la transparencia (1 = opaco, 0 = transparente) */
+
+  transition: all 0.3s ease;
+}
+
+/* ===== CONTENEDOR PRINCIPAL ===== */
+.login-container {
+  background-color: #ffffff;
+  padding: 40px 35px;
+  border-radius: 18px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.1);
+  width: 380px;
+  text-align: center;
+}
+
+/* ===== ICONO SUPERIOR ===== */
+.login-icon {
+  margin-bottom: 15px;
+}
+
+.icon-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: white;
+  margin: 0 auto 10px;
+}
+
+.icon-circle.blue {
+  background-color: #3b82f6;
+}
+
+/* ===== TEXTOS ===== */
+.title {
+  font-size: 1.6rem;
+  color: #004aad;
+  margin-bottom: 5px;
+}
+
+.login-subtitle {
+  color: #4b5563;
+  font-size: 0.95rem;
+  margin-bottom: 25px;
+}
+
+/* ===== FORMULARIO ===== */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+
+label {
+  font-weight: 500;
+  color: #1a2b4c;
+  font-size: 0.95rem;
+  margin-bottom: 5px;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  background-color: #f5f6fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.input-group i {
+  color: #888;
+  margin-right: 10px;
+}
+
+.input-group input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+/* ===== BOTONES ===== */
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.cancel-btn {
+  background-color: #f1f1f1;
+  color: #333;
+  border: 1px solid #d1d5db;
+  padding: 10px 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  left: 20px;
+}
+
+.cancel-btn:hover {
+  background-color: #e0e0e0e4;
+  transform: scale(1.07);
+}
+
+.loginbtn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.loginbtn:hover {
+  background-color: #2564ebe0;
+  transform: scale(1.07);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+  .login-container {
+    width: 90%;
+    padding: 30px;
+  }
+}
+
+/* ===== PASSWORD GROUP EXTRA STYLES ===== */
+.password-group {
+  position: relative;
+}
+
+.togglepassword {
+  position: absolute;
+  right: 12px;
+  color: #999;
+  cursor: pointer;
+  font-size: 16px;
+  transition: color 0.2s ease;
+}
+
+.togglepassword:hover {
+  color: #3b82f6;
+}
+
+/* ===== ESTILOS DE ERROR ===== */
+/* Efecto de error en todo el contenedor del campo */
+.input-group.error-border {
+  border: 2px solid #e63946 !important;
+  box-shadow: 0 0 6px rgba(230, 57, 70, 0.4);
+  animation: shake 0.3s ease;
+}
+
+/* Animación del temblor */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+/* Mensaje debajo del campo */
+.input-error {
+  color: #e63946;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  margin-left: 5px;
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+
+/* ===== ANIMACIÓN DE SPINNER ===== */
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #ffffff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+

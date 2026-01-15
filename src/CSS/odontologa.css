@@ -1,0 +1,547 @@
+/* ===== SCOPE GENERAL ===== */
+.odontologa-dashboard-scope {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f5f8ff;
+  min-height: 100vh;
+}
+
+/* ===== LOGO ===== */
+.logo-image {
+  position: absolute;
+  top: 25px;
+  left: 20px;
+  width: 140px;
+  height: auto;
+  z-index: 100;
+  opacity: 0.9;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e9f0ff;
+  padding: 50px 80px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.icon-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 26px;
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  color: #1a2b4c;
+  margin: 0;
+}
+
+.header p {
+  color: #6b7280;
+  margin: 5px 0 0 0;
+}
+
+.logout-link {
+  text-decoration: none;
+  color: #1a2b4c;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.logout-link:hover {
+  color: #8b5cf6;
+}
+
+/* ===== CONTAINER PRINCIPAL ===== */
+.container {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 30px;
+  padding: 30px 80px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* ===== SECCIÓN CONSULTA ===== */
+.consulta {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.consulta-header {
+  margin-bottom: 20px;
+}
+
+.consulta-header h2 {
+  color: #1a2b4c;
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+}
+
+#paciente-nombre {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+/* ===== TABS ===== */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.tab {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.tab:hover {
+  color: #1a2b4c;
+}
+
+.tab.active {
+  color: #8b5cf6;
+  border-bottom-color: #8b5cf6;
+  font-weight: 600;
+}
+
+/* ===== CONTENIDO DE TABS ===== */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ===== INFO BOX ===== */
+.info-box {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.badge {
+  background: #dcfce7;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-left: 5px;
+}
+
+/* ===== FORMULARIOS ===== */
+label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #1a2b4c;
+}
+
+textarea, input, select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #f5f6fa;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+/* ===== BOTONES ===== */
+.buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.save-btn, .receta-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.save-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #2563eb;
+}
+
+.receta-btn {
+  background: #10b981;
+  color: white;
+}
+
+.receta-btn:hover {
+  background: #059669;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.agenda, .procedimientos, .stats {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.agenda h3, .procedimientos h3, .stats h3 {
+  color: #1a2b4c;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+}
+
+.agenda-item {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.agenda-item:hover {
+  background: #e0f2fe;
+}
+
+.agenda-item.active {
+  background: #dbeafe;
+  border-left: 4px solid #3b82f6;
+}
+
+.hora {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* ===== GRID BUTTONS ===== */
+.grid-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.grid-buttons button {
+  padding: 10px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.grid-buttons button:hover {
+  background: #e5e7eb;
+}
+
+.grid-buttons button.active {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+/* ===== MODALES ===== */
+.modal-receta, .logout-modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-contenido, .logout-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+}
+
+.cerrar-modal {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.3s;
+}
+
+.cerrar-modal:hover {
+  color: #1a2b4c;
+}
+
+/* ===== BOTONES DE LOGOUT ===== */
+.logout-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.btn-cancel, .btn-logout {
+  flex: 1;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-cancel {
+  background: #e5e7eb;
+  color: #1a2b4c;
+}
+
+.btn-cancel:hover {
+  background: #d1d5db;
+}
+
+.btn-logout {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-logout:hover {
+  background: #dc2626;
+}
+
+/* ===== ODONTOGRAMA ===== */
+.odontograma-contenedor {
+  padding: 20px 0;
+}
+
+.modo-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #8b5cf6;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.odontograma-dientes {
+  margin: 30px 0;
+}
+
+.fila-dientes {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.diente {
+  width: 45px;
+  height: 45px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.diente:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.estado-selector {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.estados {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.estado {
+  padding: 8px 16px;
+  border: 2px solid #d1d5db;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.estado:hover {
+  background: #f3f4f6;
+}
+
+.estado.activo {
+  border-color: #8b5cf6;
+  background: #f3e8ff;
+}
+
+/* ===== HISTORIAL ===== */
+.tabla-historial {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+.tabla-historial th,
+.tabla-historial td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tabla-historial th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #1a2b4c;
+}
+
+.estado.completado {
+  background: #dcfce7;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.estado.proceso {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.estado.pendiente {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.generar-historial {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.generar-historial button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.generar-historial button:hover {
+  background: #dc2626;
+}

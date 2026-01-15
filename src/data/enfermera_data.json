@@ -1,0 +1,46 @@
+{
+  "pacientesEspera": [
+    {
+      "id": 1,
+      "hora": "09:00",
+      "paciente": "Laura Torres",
+      "edad": "45 años",
+      "telefono": "0987654321",
+      "estado": "En espera"
+    },
+    {
+      "id": 2,
+      "hora": "10:00",
+      "paciente": "Carlos Méndez",
+      "edad": "32 años",
+      "telefono": "0998765432",
+      "estado": "En espera"
+    },
+    {
+      "id": 3,
+      "hora": "11:00",
+      "paciente": "María González",
+      "edad": "28 años",
+      "telefono": "0976543210",
+      "estado": "En espera"
+    }
+  ],
+  "pacientesPreparados": [],
+  "historialAtenciones": [
+    {
+      "id": 100,
+      "paciente": "Pedro Ramírez",
+      "fecha": "28 dic. 2025",
+      "tratamiento": "Limpieza dental",
+      "observaciones": "Ninguna"
+    },
+    {
+      "id": 101,
+      "paciente": "Ana López",
+      "fecha": "27 dic. 2025",
+      "tratamiento": "Extracción",
+      "observaciones": "Alergia a penicilina"
+    }
+  ],
+  "alertasMedicas": []
+}

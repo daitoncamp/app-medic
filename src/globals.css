@@ -1,0 +1,175 @@
+/* ===== RESET ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+/* ===== BODY ===== */
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(180deg, #f5f8ff 0%, #e9f0ff 100%);
+  color: #1a2b4c;
+  text-align: center;
+}
+
+
+/* ============================
+   Esta es para la imagen
+   ============================ */
+.logo-image {
+  position: absolute; /* Fija la imagen en la esquina */
+  top: 10px;          /* 🔹 Cambia esta línea para ajustar la distancia desde arriba */
+  left: 25px;         /* 🔹 Cambia esta línea para ajustar la distancia desde la izquierda */
+
+  width: 200px;       /* 🔹 Cambia esta línea para modificar el tamaño de la imagen */
+  height: auto;       /* 🔹 Cambia esta línea si quieres una altura fija */
+
+  opacity: 0.8;       /* 🔹 Cambia esta línea para ajustar la transparencia (1 = opaco, 0 = transparente) */
+
+  transition: all 0.3s ease;
+}
+
+.logo-image:hover {
+  opacity: 1;         /* Efecto al pasar el cursor */
+  transform: scale(1.05);
+}
+
+
+
+/* ===== TÍTULOS ===== */
+.main-title {
+  font-size: 2.2rem;
+  color: #004aad;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 1rem;
+  color: #4b5563;
+  margin-bottom: 50px;
+}
+
+/* ===== CONTENEDOR DE TARJETAS ===== */
+.roles-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+/* ===== TARJETA DE ROL ===== */
+.role-card {
+  background: #fff;
+  border-radius: 18px;
+  width: 280px;
+  height: 250px;
+  padding: 35px 25px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  border: 2px solid transparent;
+}
+
+.role-card:hover {
+  transform: translateY(-6px);
+}
+
+/* ===== ICONOS ===== */
+.icon-circle {
+  width: 85px;
+  height: 85px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: white;
+  margin: 0 auto 15px;
+  transition: all 0.3s ease;
+}
+
+.icon-circle.blue {
+  background-color: #3b82f6;
+}
+
+.icon-circle.green {
+  background-color: #22c55e;
+}
+
+.icon-circle.purple {
+  background-color: #a855f7;
+}
+
+/* ===== TEXTOS EN TARJETAS ===== */
+.role-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Colores de texto por rol */
+.role-card:nth-child(1) h3 {
+  color: #3b82f6; /* Azul Recepcionista */
+}
+
+.role-card:nth-child(2) h3 {
+  color: #22c55e; /* Verde Enfermera */
+}
+
+.role-card:nth-child(3) h3 {
+  color: #a855f7; /* Morado Odontóloga */
+}
+
+/* Descripciones */
+.role-card p {
+  color: #555;
+  font-size: 0.95rem;
+}
+
+/* ===== EFECTOS HOVER DE COLORES ===== */
+.role-card:nth-child(1):hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+.role-card:nth-child(2):hover {
+  border-color: #22c55e;
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.role-card:nth-child(3):hover {
+  border-color: #a855f7;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .roles-container {
+    flex-direction: column;
+    gap: 25px;
+  }
+
+  .role-card {
+    width: 80%;
+    height: auto;
+  }
+}
+
+
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css");
+
+/* El resto de tu código CSS abajo... */
+* {
+  margin: 0;
+  padding: 0;
+  /* ... */
+}
