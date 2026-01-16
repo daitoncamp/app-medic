@@ -93,6 +93,16 @@ body {
   text-decoration: none;
   color: #1a2b4c;
   font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: "Poppins", sans-serif;
+  transition: color 0.3s ease;
+}
+
+.logout-link:hover {
+  color: #3b82f6;
 }
 
 .logout-link i {
@@ -175,6 +185,11 @@ body {
   width: 100%;
   font-size: 0.95rem;
   outline: none;
+  color: #1a2b4c;
+}
+
+.search-bar input::placeholder {
+  color: #9ca3af;
 }
 
 /* ===== TABLA DE CITAS ===== */
@@ -201,9 +216,29 @@ body {
   font-size: 0.8rem;
 }
 
+.status.confirmada {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-block;
+}
+
 .status.confirmed {
   background-color: #dcfce7;
   color: #15803d;
+}
+
+.status.pendiente {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-block;
 }
 
 .status.pending {
@@ -211,18 +246,75 @@ body {
   color: #854d0e;
 }
 
+.status.atendida {
+  background-color: #e0e7ff;
+  color: #3730a3;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-block;
+}
+
+/* ===== BOTONES DE ACCIONES ===== */
+.actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
 .actions button {
   background: white;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 6px 8px;
-  margin-right: 5px;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .actions button:hover {
   background-color: #f3f4f6;
+  color: #1a2b4c;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón de confirmar (verde) */
+.actions .btn-confirm {
+  background: #10b981;
+  color: white;
+  border: none;
+}
+
+.actions .btn-confirm:hover {
+  background: #059669;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Botón de editar (azul) */
+.actions .btn-edit {
+  background: #3b82f6;
+  color: white;
+  border: none;
+}
+
+.actions .btn-edit:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Botón de eliminar (rojo) */
+.actions .btn-delete {
+  background: #ef4444;
+  color: white;
+  border: none;
+}
+
+.actions .btn-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
 /* ===== ESTADÍSTICAS Y REGISTRO ===== */
@@ -286,6 +378,18 @@ body {
   border-radius: 8px;
   border: 1px solid #d1d5db;
   background-color: #f5f6fa;
+  color: #1a2b4c;
+  font-size: 0.95rem;
+}
+
+.register-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+.register-form input::placeholder {
+  color: #9ca3af;
 }
 
 .register-btn {
@@ -357,6 +461,19 @@ body {
   border-radius: 8px;
   border: 1px solid #d1d5db;
   background-color: #f5f6fa;
+  color: #1a2b4c;
+  font-size: 0.95rem;
+}
+
+#appointmentForm input:focus,
+#appointmentForm select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+#appointmentForm input::placeholder {
+  color: #9ca3af;
 }
 
 .row {
@@ -519,6 +636,7 @@ body {
   margin-top: 12px;
   display: block;
   font-weight: 500;
+  color: #1a2b4c;
 }
 
 #appointmentForm input,
@@ -528,6 +646,19 @@ body {
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background: #f9fafb;
+  color: #1a2b4c;
+  font-size: 0.95rem;
+}
+
+#appointmentForm input:focus,
+#appointmentForm select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+#appointmentForm input::placeholder {
+  color: #9ca3af;
 }
 
 /* ===== GRID FECHA/HORA ===== */
@@ -686,27 +817,6 @@ body {
   font-style: italic;
 }
 
-/* Estado confirmada en la tabla */
-.status.confirmada {
-  background: #d1fae5;
-  color: #065f46;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 12px;
-  display: inline-block;
-}
-
-.status.pendiente {
-  background: #fef3c7;
-  color: #92400e;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 12px;
-  display: inline-block;
-}
-
 /* Animación al confirmar */
 @keyframes confirmarSuccess {
   0% {
@@ -723,7 +833,3 @@ body {
 .btn-confirm:active {
   animation: confirmarSuccess 0.3s ease;
 }
-
-
-
-
