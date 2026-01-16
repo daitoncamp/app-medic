@@ -118,6 +118,7 @@
   cursor: pointer;
   font-size: 1rem;
   transition: color 0.3s ease;
+  font-family: "Poppins", sans-serif;
 }
 
 .enf-logout-link-btn:hover {
@@ -176,6 +177,11 @@
   width: 100%;
   font-size: 0.95rem;
   outline: none;
+  color: #1a2b4c;
+}
+
+.enf-search-bar input::placeholder {
+  color: #9ca3af;
 }
 
 /* ===== TABS ===== */
@@ -281,6 +287,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
+  color: #374151;
 }
 
 .enf-prepare-btn:hover {
@@ -291,6 +298,7 @@
 
 .enf-details-btn:hover {
   background-color: #57ec5e;
+  color: #fff;
   transform: scale(1.05);
 }
 
@@ -341,6 +349,16 @@
   background: transparent;
   padding: 5px;
   font-size: 0.95rem;
+  color: #1a2b4c;
+}
+
+.enf-vital-field input::placeholder {
+  color: #9ca3af;
+}
+
+.enf-vital-field input:focus {
+  background: white;
+  border-radius: 4px;
 }
 
 .enf-textarea {
@@ -354,6 +372,11 @@
   font-size: 0.95rem;
   outline: none;
   min-height: 80px;
+  color: #1a2b4c;
+}
+
+.enf-textarea::placeholder {
+  color: #9ca3af;
 }
 
 .enf-textarea:focus {
@@ -478,6 +501,7 @@
   padding: 10px;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
+  color: #374151;
 }
 
 .enf-history-table thead {
@@ -576,7 +600,7 @@
 }
 
 .enf-details-box {
-  background: #0015fb;
+  background: #f9fafb;
   border-radius: 6px;
   padding: 10px;
   font-size: 0.9rem;
@@ -586,6 +610,7 @@
   margin: 8px 0;
   display: flex;
   justify-content: space-between;
+  color: #374151;
 }
 
 .enf-details-alert {
@@ -645,7 +670,7 @@
 }
 
 /* =====================================================
-   🔴 MODAL CERRAR SESIÓN (ESTILO SEGUNDA IMAGEN)
+   🔴 MODAL CERRAR SESIÓN
 ===================================================== */
 
 #logoutModal {
@@ -655,7 +680,7 @@
   top: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 52, 128, 0.3); /* fondo azul translúcido */
+  background: rgba(0, 52, 128, 0.3);
   justify-content: center;
   align-items: center;
   opacity: 0;
