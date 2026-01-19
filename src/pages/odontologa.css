@@ -121,6 +121,7 @@
   margin: 0 auto !important;
   padding: 0 1.5rem;
   box-sizing: border-box;
+  min-height: auto !important;
 }
 
 /* ===== SECCIÓN CONSULTA ===== */
@@ -129,9 +130,6 @@
   width: 100% !important;
   max-width: 950px !important;
   min-width: 700px !important;
-  min-height: 650px !important;
-  height: 650px !important;
-  max-height: 650px !important;
   background: white;
   border-radius: 15px;
   padding: 1.5rem;
@@ -139,9 +137,12 @@
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box;
-  overflow: hidden;
+  /* ✅ QUITAR límites de altura */
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important; /* ✅ Sin scroll aquí */
 }
-
 .odonto-consulta-header {
   margin-bottom: 1rem;
 }
@@ -166,6 +167,131 @@
   padding: 4px;
   flex-shrink: 0 !important;
   box-sizing: border-box;
+}
+
+
+
+/* ===== FIX SCROLL ODONTÓLOGA ===== */
+
+/* CONTENEDOR PRINCIPAL - Sin scroll, altura automática */
+.odonto-dashboard-scope .odonto-container {
+  display: flex !important;
+  gap: 1.5rem;
+  align-items: flex-start !important;
+  max-width: 1400px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+  min-height: auto !important; /* ✅ Altura automática */
+}
+
+/* SECCIÓN CONSULTA - Altura flexible, sin límite fijo */
+.odonto-dashboard-scope .odonto-consulta {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: 950px !important;
+  min-width: 700px !important;
+  background: white;
+  border-radius: 15px;
+  padding: 1.5rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box;
+  /* ✅ QUITAR límites de altura */
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important; /* ✅ Sin scroll aquí */
+}
+
+/* TABS - Sin scroll */
+.odonto-dashboard-scope .odonto-tabs {
+  display: flex !important;
+  background: #eae6ff;
+  border-radius: 10px;
+  margin: 1rem 0;
+  padding: 4px;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
+}
+
+/* TAB CONTENT - CON SCROLL Y FONDO BLANCO */
+.odonto-dashboard-scope .odonto-tab-content {
+  display: none !important;
+  overflow-y: auto !important; /* ✅ SOLO AQUÍ hay scroll */
+  overflow-x: hidden;
+  flex: 1 1 auto !important;
+  min-height: 480px !important;
+  max-height: 550px !important; /* ✅ Aumentado para ver más contenido */
+  height: auto !important;
+  padding-right: 8px;
+  box-sizing: border-box;
+  background-color: #ffffff; /* ✅ FONDO BLANCO */
+}
+
+.odonto-dashboard-scope .odonto-tab-content.odonto-active {
+  display: block !important;
+}
+
+/* SCROLLBAR PERSONALIZADO - Blanco */
+.odonto-dashboard-scope .odonto-tab-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.odonto-dashboard-scope .odonto-tab-content::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Fondo claro del track */
+  border-radius: 10px;
+}
+
+.odonto-dashboard-scope .odonto-tab-content::-webkit-scrollbar-thumb {
+  background: #8235FF; /* Color morado del thumb */
+  border-radius: 10px;
+}
+
+.odonto-dashboard-scope .odonto-tab-content::-webkit-scrollbar-thumb:hover {
+  background: #6e1eff;
+}
+
+/* SIDEBAR - Altura automática, sin scroll */
+.odonto-dashboard-scope .odonto-sidebar {
+  flex: 0 0 280px !important;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem;
+  box-sizing: border-box;
+  /* ✅ QUITAR scroll del sidebar */
+  overflow: visible !important;
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+/* Fix para textareas - fondo blanco y texto negro */
+.odonto-consulta textarea {
+  min-height: 100px;
+  resize: vertical;
+  background-color: #ffffff !important; /* ✅ FONDO BLANCO */
+  color: #1a2b4c !important; /* ✅ TEXTO NEGRO */
+}
+
+.odonto-consulta textarea::placeholder {
+  color: #9ca3af; /* Placeholder gris */
+}
+
+/* Fix para todos los inputs - texto negro visible */
+.odonto-consulta input:not([type="checkbox"]) {
+  background: #f9f9ff;
+  color: #1a2b4c !important; /* ✅ TEXTO NEGRO */
+}
+
+.odonto-consulta select {
+  background: #f9f9ff;
+  color: #1a2b4c !important; /* ✅ TEXTO NEGRO */
 }
 
 .odonto-dashboard-scope .odonto-tab {
@@ -253,6 +379,7 @@
   background: #f9f9ff;
   transition: all 0.3s;
   min-height: 42px;
+  color: #1a2b4c;
 }
 
 .odonto-consulta textarea:focus,
@@ -559,6 +686,7 @@ input:checked + .odonto-slider:before {
 .odonto-estado {
   border: 2px solid #d1d5db;
   background: white;
+  color: #1a2b4c;  /* Texto oscuro */
   border-radius: 12px;
   padding: 6px 12px;
   cursor: pointer;
@@ -644,6 +772,7 @@ input:checked + .odonto-slider:before {
   font-size: 0.95rem;
   background: #f9f9ff;
   transition: all 0.3s;
+  color: #1a2b4c;
 }
 
 .odonto-generar-historial input:focus {
@@ -796,6 +925,7 @@ input:checked + .odonto-slider:before {
   background: #f9f9ff;
   font-family: inherit;
   transition: border-color 0.2s;
+  color: #1a2b4c;
 }
 
 .odonto-modal-contenido input:focus,
