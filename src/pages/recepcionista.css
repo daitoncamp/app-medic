@@ -650,6 +650,97 @@ body {
   font-size: 0.95rem;
 }
 
+
+/* ===== FIX MODAL RECEPCIONISTA ===== */
+
+/* Fix GENERAL para TODOS los inputs del formulario */
+#appointmentForm input,
+#appointmentForm select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f5f6fa; /* Fondo claro */
+  color: #1a2b4c; /* Texto NEGRO visible */
+  font-size: 0.95rem;
+  cursor: text;
+}
+
+/* Específico para date y time */
+#appointmentForm input[type="time"],
+#appointmentForm input[type="date"] {
+  cursor: pointer;
+}
+
+#appointmentForm input:focus,
+#appointmentForm select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+#appointmentForm input::placeholder {
+  color: #9ca3af; /* Placeholder gris claro */
+}
+
+/* Asegurar que el calendario y reloj sean visibles */
+#appointmentForm input[type="time"]::-webkit-calendar-picker-indicator,
+#appointmentForm input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.5); /* Hace que el icono sea visible */
+}
+
+/* Fix para el contenido scrolleable del modal - fondo blanco */
+.modal-content {
+  background: #fff; /* Fondo blanco */
+  border-radius: 15px;
+  padding: 30px;
+  width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  animation: popIn 0.3s ease forwards;
+  position: relative;
+}
+
+/* Estilo del scrollbar para que se vea bien con fondo blanco */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #a4a6aa;
+  border-radius: 10px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+
+/* Fix para inputs en el formulario de REGISTRO RÁPIDO también */
+.register-form input,
+.register-form select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f5f6fa; /* Fondo claro */
+  color: #1a2b4c; /* Texto NEGRO visible */
+  font-size: 0.95rem;
+}
+
+.register-form input::placeholder {
+  color: #9ca3af; /* Placeholder gris claro */
+}
+
+
 #appointmentForm input:focus,
 #appointmentForm select:focus {
   outline: none;
