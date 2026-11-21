@@ -8,7 +8,8 @@ export class ErrorApi extends Error {
   constructor(status, mensaje, detalles) {
     super(mensaje);
     this.status = status;
-    this.detalles = detalles || {};
+    // Errores por campo ({ campo: mensaje }) o null si el error no es de un campo
+    this.detalles = detalles && Object.keys(detalles).length ? detalles : null;
   }
 }
 
