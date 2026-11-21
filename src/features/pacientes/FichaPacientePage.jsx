@@ -1,13 +1,15 @@
 import { Link, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faPhone, faTooth, faUserSlash,
+  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faPhone, faPrescription, faTooth,
+  faUserSlash,
 } from '@fortawesome/free-solid-svg-icons';
-import { Badge, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
+import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
 import { useClinica } from '../../hooks/useClinica';
 import { obtenerFichaPaciente } from '../../services/clinica';
 import { formatearFechaHora, iniciales } from '../../utils/formato';
 import { ESTADOS_DIENTE } from '../consulta/dientes';
+import DocumentosPaciente from './DocumentosPaciente';
 import styles from './Pacientes.module.css';
 
 const TIPO_EVENTO = {
@@ -15,6 +17,7 @@ const TIPO_EVENTO = {
   signos: { icon: faHeartPulse, tone: 'success' },
   diagnostico: { icon: faTooth, tone: 'purple' },
   alerta: { icon: faCircleExclamation, tone: 'danger' },
+  receta: { icon: faPrescription, tone: 'info' },
 };
 
 /** Ficha única del paciente: todo su historial en una línea de tiempo */
@@ -68,15 +71,7 @@ function FichaPacientePage() {
             <Button as="a" href={`mailto:${paciente.correo}`} variant="secondary" size="sm" icon={faEnvelope}>{paciente.correo}</Button>
           )}
         </div>
-        {alertas.length > 0 && (
-          <div className={styles.alerts}>
-            {alertas.map((a) => (
-              <Badge key={a.id} tone="danger">
-                <FontAwesomeIcon icon={faCircleExclamation} /> {a.descripcion}
-              </Badge>
-            ))}
-          </div>
-        )}
+
       </Card>
 
       <div className={styles.grid}>
@@ -106,6 +101,14 @@ function FichaPacientePage() {
         </Card>
 
         <div className={styles.sideCol}>
+          <DocumentosPaciente ficha={ficha} />
+
+          {alertas.length > 0 && (
+            <Card title="Alertas médicas" icon={faCircleExclamation} iconTone="danger">
+              <AlertList compact alertas={alertas} />
+            </Card>
+          )}
+
           <Card title="Citas" padded={false}>
             <ul className={styles.citas}>
               {[...citas].reverse().map((c) => (
