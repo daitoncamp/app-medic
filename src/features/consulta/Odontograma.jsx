@@ -5,27 +5,37 @@ import Diente from './Diente';
 import { DIENTES, ESTADOS_DIENTE, estadoDiente } from './dientes';
 import styles from './Odontograma.module.css';
 
+const esTemporal = (n) => Math.floor(n / 10) >= 5;
+
 /**
  * Odontograma de un paciente.
- * estados: { [numeroDiente]: 'caries' | ... }
- * onChange(nuevosEstados) se llama en cada cambio.
+ * estados:      lo que se ve: { [numeroDiente]: 'caries' | ... } (visitas anteriores + esta)
+ * marcadosHoy:  las marcas hechas en esta consulta (solo esas se pueden quitar)
+ * onMarcar(numero, estado), onQuitar(numero), onDeshacerTodo()
+ * denticionInicial: 'adulto' | 'nino'
  */
-function Odontograma({ estados, onChange, onLimpiarTodo }) {
-  const [denticion, setDenticion] = useState('adulto');
+function Odontograma({
+  estados, marcadosHoy = {}, onMarcar, onQuitar, onDeshacerTodo, denticionInicial = 'adulto',
+}) {
+  // Si el paciente ya tiene marcas en dientes temporales, se abre esa dentición
+  const [denticion, setDenticion] = useState(() => (
+    Object.keys(estados).some((n) => esTemporal(Number(n))) && !Object.keys(estados).some((n) => !esTemporal(Number(n)))
+      ? 'nino' : denticionInicial
+  ));
   const [estadoActivo, setEstadoActivo] = useState('caries');
   const [seleccionado, setSeleccionado] = useState(null);
 
   const marcar = (numero) => {
     setSeleccionado(numero);
-    onChange({ ...estados, [numero]: estadoActivo });
+    if (estados[numero] !== estadoActivo || !marcadosHoy[numero]) onMarcar(numero, estadoActivo);
   };
 
   const limpiarDiente = () => {
-    const copia = { ...estados };
-    delete copia[seleccionado];
-    onChange(copia);
+    onQuitar(seleccionado);
     setSeleccionado(null);
   };
+
+  const totalHoy = Object.keys(marcadosHoy).length;
 
   const arcada = (cuadrantes, posicion) => (
     <div className={`${styles.arch} ${styles[posicion]}`}>
@@ -35,9 +45,9 @@ function Odontograma({ estados, onChange, onLimpiarTodo }) {
             <button
               key={n}
               type="button"
-              className={`${styles.tooth} ${seleccionado === n ? styles.selected : ''}`}
+              className={`${styles.tooth} ${seleccionado === n ? styles.selected : ''} ${marcadosHoy[n] ? styles.today : ''}`}
               onClick={() => marcar(n)}
-              aria-label={`Diente ${n}: ${estadoDiente(estados[n])?.label || 'sin registrar'}`}
+              aria-label={`Diente ${n}: ${estadoDiente(estados[n])?.label || 'sin registrar'}${marcadosHoy[n] ? ' (marcado hoy)' : ''}`}
               aria-pressed={seleccionado === n}
             >
               <Diente numero={n} estado={estados[n]} className={styles.toothSvg} />
@@ -96,6 +106,7 @@ function Odontograma({ estados, onChange, onLimpiarTodo }) {
 
       <p className={styles.help}>
         Elige un estado y toca los dientes para marcarlos. Vista de frente al paciente.
+        Los números con borde son las marcas de esta consulta; el resto viene de visitas anteriores.
         <span className={styles.scrollHint}> Desliza el odontograma para ver todas las piezas.</span>
       </p>
 
@@ -115,11 +126,11 @@ function Odontograma({ estados, onChange, onLimpiarTodo }) {
             : 'Sin dientes marcados.'}
         </p>
         <div className={styles.footerActions}>
-          <Button variant="secondary" size="sm" icon={faEraser} disabled={!seleccionado || !estados[seleccionado]} onClick={limpiarDiente}>
-            {seleccionado ? `Quitar marca del ${seleccionado}` : 'Quitar marca'}
+          <Button variant="secondary" size="sm" icon={faEraser} disabled={!seleccionado || !marcadosHoy[seleccionado]} onClick={limpiarDiente}>
+            {seleccionado && marcadosHoy[seleccionado] ? `Quitar marca de hoy del ${seleccionado}` : 'Quitar marca de hoy'}
           </Button>
-          <Button variant="ghost" size="sm" icon={faBroom} disabled={!Object.keys(estados).length} onClick={onLimpiarTodo}>
-            Limpiar todo
+          <Button variant="ghost" size="sm" icon={faBroom} disabled={!totalHoy} onClick={onDeshacerTodo}>
+            Deshacer marcas de hoy{totalHoy ? ` (${totalHoy})` : ''}
           </Button>
         </div>
       </div>

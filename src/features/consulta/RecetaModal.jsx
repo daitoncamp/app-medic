@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { faFilePdf } from '@fortawesome/free-solid-svg-icons';
-import { Button, Field, FieldRow, Modal } from '../../components/ui';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFilePdf, faPlus, faTrash, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { Button, Field, FieldRow, IconButton, Modal } from '../../components/ui';
+import { revisarReceta } from '../../utils/alergias';
 import { requerido, validarFormulario } from '../../utils/validaciones';
+import styles from './Consulta.module.css';
 
-const VACIO = { medicamento: '', dosis: '', frecuencia: '', duracion: '', indicaciones: '' };
+const MEDICAMENTO_VACIO = { medicamento: '', dosis: '', frecuencia: '', duracion: '' };
+const MAX_MEDICAMENTOS = 5;
 
-const sinNegativos = (v) => (String(v).includes('-') ? 'Ingrese un valor correcto.' : '');
+// "Cada 6-8 horas" es válido; "-3 días" no
+const sinNegativos = (v) => (/(^|\s)-\s*\d/.test(String(v)) ? 'Ingrese un valor correcto (sin números negativos).' : '');
 
 const REGLAS = {
   medicamento: [requerido, (v) => (/\d/.test(v) ? 'Escriba solo el nombre (la dosis va aparte).' : '')],
@@ -14,43 +19,148 @@ const REGLAS = {
   duracion: [requerido, sinNegativos],
 };
 
+/** Valida cada medicamento; los errores quedan como "medicamentos.0.dosis" (igual que la API) */
+const validar = (medicamentos) => {
+  const errores = {};
+  medicamentos.forEach((m, i) => {
+    Object.entries(validarFormulario(m, REGLAS)).forEach(([campo, mensaje]) => {
+      errores[`medicamentos.${i}.${campo}`] = mensaje;
+    });
+  });
+  return errores;
+};
+
+/**
+ * Receta con uno o varios medicamentos.
+ * onGenerar({ medicamentos, indicaciones }) es asíncrona; si la API devuelve
+ * errores por campo (error.detalles), se muestran en el formulario.
+ */
 function RecetaModal({ open, paciente, onClose, onGenerar }) {
-  const [form, setForm] = useState(VACIO);
+  const [medicamentos, setMedicamentos] = useState([{ ...MEDICAMENTO_VACIO }]);
+  const [indicaciones, setIndicaciones] = useState('');
   const [errores, setErrores] = useState({});
+  const [guardando, setGuardando] = useState(false);
+  const [confirmaAlergias, setConfirmaAlergias] = useState(false);
 
-  const cambiar = (campo) => (e) => {
-    setForm((f) => ({ ...f, [campo]: e.target.value }));
-    if (errores[campo]) setErrores((er) => ({ ...er, [campo]: '' }));
+  // Aviso en vivo si un medicamento coincide con una alergia registrada
+  const coincidencias = revisarReceta(medicamentos, paciente?.alergiasLista || []);
+  const avisoDe = (i) => coincidencias.find((c) => c.indice === i);
+
+  const cambiar = (i, campo) => (e) => {
+    const valor = e.target.value;
+    setMedicamentos((lista) => lista.map((m, j) => (j === i ? { ...m, [campo]: valor } : m)));
+    const clave = `medicamentos.${i}.${campo}`;
+    if (errores[clave]) setErrores((er) => ({ ...er, [clave]: '' }));
   };
 
-  const enviar = (e) => {
+  const agregar = () => setMedicamentos((lista) => [...lista, { ...MEDICAMENTO_VACIO }]);
+  const quitar = (i) => {
+    setMedicamentos((lista) => lista.filter((_, j) => j !== i));
+    setErrores({});
+  };
+
+  const enviar = async (e) => {
     e.preventDefault();
-    const nuevos = validarFormulario(form, REGLAS);
+    const nuevos = validar(medicamentos);
+    if (coincidencias.length && !confirmaAlergias) {
+      nuevos.confirmaAlergias = 'Confirma que revisaste la alergia o cambia el medicamento.';
+    }
     setErrores(nuevos);
-    if (!Object.keys(nuevos).length) onGenerar(form);
+    if (Object.keys(nuevos).length || guardando) return;
+    setGuardando(true);
+    try {
+      await onGenerar({
+        medicamentos: medicamentos.map((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v.trim()]))),
+        indicaciones: indicaciones.trim(),
+        confirmarAlergias: coincidencias.length > 0 && confirmaAlergias,
+      });
+    } catch (error) {
+      if (error.detalles) setErrores(error.detalles);
+    } finally {
+      setGuardando(false);
+    }
   };
+
+  const error = (i, campo) => errores[`medicamentos.${i}.${campo}`];
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Receta médica"
-      description={paciente?.nombre}
+      description={paciente?.alergias && paciente.alergias !== 'Ninguna'
+        ? `${paciente.nombre} · Alergias: ${paciente.alergias}`
+        : paciente?.nombre}
       footer={(
         <>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-receta" icon={faFilePdf}>Generar PDF</Button>
+          <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
+          <Button type="submit" form="form-receta" icon={faFilePdf} disabled={guardando}>
+            {guardando ? 'Emitiendo…' : 'Emitir y descargar PDF'}
+          </Button>
         </>
       )}
     >
-      <form id="form-receta" onSubmit={enviar} noValidate style={{ display: 'grid', gap: 16 }}>
-        <Field label="Medicamento" placeholder="Ibuprofeno" value={form.medicamento} onChange={cambiar('medicamento')} error={errores.medicamento} />
-        <FieldRow columns={3}>
-          <Field label="Dosis" placeholder="400 mg" value={form.dosis} onChange={cambiar('dosis')} error={errores.dosis} />
-          <Field label="Frecuencia" placeholder="Cada 8 horas" value={form.frecuencia} onChange={cambiar('frecuencia')} error={errores.frecuencia} />
-          <Field label="Duración" placeholder="3 días" value={form.duracion} onChange={cambiar('duracion')} error={errores.duracion} />
-        </FieldRow>
-        <Field as="textarea" label="Indicaciones" placeholder="Tomar después de las comidas…" value={form.indicaciones} onChange={cambiar('indicaciones')} />
+      <form id="form-receta" onSubmit={enviar} noValidate className={styles.recipeForm}>
+        {medicamentos.map((m, i) => (
+          <fieldset key={i} className={styles.medicine}>
+            <legend className={styles.medicineLegend}>
+              Medicamento {medicamentos.length > 1 ? i + 1 : ''}
+              {medicamentos.length > 1 && (
+                <IconButton icon={faTrash} label={`Quitar medicamento ${i + 1}`} onClick={() => quitar(i)} />
+              )}
+            </legend>
+            <Field
+              label="Nombre"
+              placeholder="Ibuprofeno"
+              value={m.medicamento}
+              onChange={cambiar(i, 'medicamento')}
+              error={error(i, 'medicamento')}
+              hint={avisoDe(i) && `⚠ Posible alergia: ${avisoDe(i).alergia}`}
+            />
+            <FieldRow columns={3}>
+              <Field label="Dosis" placeholder="400 mg" value={m.dosis} onChange={cambiar(i, 'dosis')} error={error(i, 'dosis')} />
+              <Field label="Frecuencia" placeholder="Cada 8 horas" value={m.frecuencia} onChange={cambiar(i, 'frecuencia')} error={error(i, 'frecuencia')} />
+              <Field label="Duración" placeholder="3 días" value={m.duracion} onChange={cambiar(i, 'duracion')} error={error(i, 'duracion')} />
+            </FieldRow>
+          </fieldset>
+        ))}
+        {medicamentos.length < MAX_MEDICAMENTOS && (
+          <Button variant="ghost" size="sm" icon={faPlus} onClick={agregar} className={styles.addMedicine}>
+            Agregar otro medicamento
+          </Button>
+        )}
+        <Field
+          as="textarea"
+          label="Indicaciones"
+          placeholder="Tomar después de las comidas…"
+          value={indicaciones}
+          onChange={(e) => setIndicaciones(e.target.value)}
+          error={errores.indicaciones}
+        />
+        {coincidencias.length > 0 && (
+          <div className={styles.allergyWarning} role="alert">
+            <FontAwesomeIcon icon={faTriangleExclamation} />
+            <div>
+              <p className={styles.allergyTitle}>Posible alergia</p>
+              <ul>
+                {coincidencias.map((c) => <li key={c.indice}><strong>{c.medicamento}</strong>: {c.alergia}</li>)}
+              </ul>
+              <label className={styles.allergyConfirm}>
+                <input
+                  type="checkbox"
+                  checked={confirmaAlergias}
+                  onChange={(e) => {
+                    setConfirmaAlergias(e.target.checked);
+                    setErrores((er) => ({ ...er, confirmaAlergias: '' }));
+                  }}
+                />
+                Revisé la alergia y deseo emitir la receta igualmente
+              </label>
+              {errores.confirmaAlergias && <p className={styles.formError}>{errores.confirmaAlergias}</p>}
+            </div>
+          </div>
+        )}
+        {errores.medicamentos && <p className={styles.formError} role="alert">{errores.medicamentos}</p>}
       </form>
     </Modal>
   );

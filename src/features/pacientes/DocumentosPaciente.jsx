@@ -4,7 +4,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { Button, Card, EmptyState, useToast } from '../../components/ui';
 import { obtenerSesion, ROLES } from '../../services/authService';
-import { registrarReceta } from '../../services/clinica';
+import { ESTADOS_CITA } from '../../services/clinica';
+import { emitirReceta } from '../../services/consultaApi';
 import { formatearFechaHora } from '../../utils/formato';
 import RecetaModal from '../consulta/RecetaModal';
 import { generarHistorialPDF, generarRecetaPDF } from '../consulta/pdf';
@@ -18,14 +19,17 @@ const PERMISOS_DOCUMENTOS = {
   emitirReceta: [ROLES.ODONTOLOGA],
 };
 
-// Emitir recetas desde la ficha vuelve en la fase 3.3, cuando la consulta use la API
-const EMITIR_DESDE_FICHA = false;
+// Desde la ficha, la receta queda asociada a la última cita en consulta o atendida
+const ESTADOS_CON_CONSULTA = [ESTADOS_CITA.EN_CONSULTA, ESTADOS_CITA.ATENDIDA];
 
 /** Datos del paciente en el formato que esperan los PDF */
 const pacienteParaPDF = (ficha) => {
   const { paciente, citas, alertas, ultimosSignos } = ficha;
   const ultimaCita = [...citas].sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`)).pop();
-  const alergias = alertas.filter((a) => a.tipo === 'alergia').map((a) => a.descripcion);
+  const alergias = [
+    ...ficha.antecedentes.filter((a) => a.tipo === 'ALERGIA').map((a) => a.descripcion),
+    ...alertas.filter((a) => a.tipo === 'alergia').map((a) => a.descripcion),
+  ];
   return {
     id: ultimaCita?.id,
     nombre: paciente.nombre,
@@ -34,6 +38,7 @@ const pacienteParaPDF = (ficha) => {
     sexo: paciente.sexo,
     tratamiento: ultimaCita?.consulta,
     alergias: alergias.length ? [...new Set(alergias)].join('; ') : 'Ninguna',
+    alergiasLista: [...new Set(alergias)],
     signosVitales: ultimosSignos,
     alertas,
   };
@@ -43,16 +48,21 @@ const pacienteParaPDF = (ficha) => {
  * Documentos del paciente: historial clínico y recetas.
  * Están disponibles aunque la consulta ya se haya finalizado.
  */
-function DocumentosPaciente({ ficha }) {
+function DocumentosPaciente({ ficha, onCambio }) {
   const toast = useToast();
-  const rol = obtenerSesion()?.rol;
+  const sesion = obtenerSesion();
+  const rol = sesion?.rol;
   const [receta, setReceta] = useState(false);
   const [generando, setGenerando] = useState(null);
 
   if (!PERMISOS_DOCUMENTOS.descargar.includes(rol)) return null;
 
   const paciente = pacienteParaPDF(ficha);
-  const puedeEmitir = EMITIR_DESDE_FICHA && PERMISOS_DOCUMENTOS.emitirReceta.includes(rol);
+  const citaParaReceta = [...ficha.citas]
+    .filter((c) => ESTADOS_CON_CONSULTA.includes(c.estado))
+    .sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
+    .pop();
+  const puedeEmitir = PERMISOS_DOCUMENTOS.emitirReceta.includes(rol) && Boolean(citaParaReceta);
 
   const ejecutar = async (clave, accion, mensaje) => {
     setGenerando(clave);
@@ -88,7 +98,10 @@ function DocumentosPaciente({ ficha }) {
             disabled={generando === 'historial'}
             onClick={() => ejecutar(
               'historial',
-              () => generarHistorialPDF(paciente, [...ficha.historial].reverse(), { odontograma: ficha.odontograma }),
+              () => generarHistorialPDF(paciente, [...ficha.historial].reverse(), {
+                odontograma: ficha.odontograma,
+                firmante: rol === ROLES.ODONTOLOGA ? sesion.nombre : undefined,
+              }),
               'Historial descargado.',
             )}
           >
@@ -101,7 +114,10 @@ function DocumentosPaciente({ ficha }) {
           ficha.recetas.map((r) => (
             <div key={r.id} className={styles.document}>
               <div>
-                <p className={styles.documentTitle}>{r.medicamento} · {r.dosis}</p>
+                <p className={styles.documentTitle}>
+                  {r.medicamento} · {r.dosis}
+                  {r.medicamentos?.length > 1 && ` y ${r.medicamentos.length - 1} más`}
+                </p>
                 <p className={styles.documentMeta}>{r.numero} · {formatearFechaHora(r.fechaRegistro)}</p>
               </div>
               <Button
@@ -126,9 +142,16 @@ function DocumentosPaciente({ ficha }) {
           paciente={paciente}
           onClose={() => setReceta(false)}
           onGenerar={async (datosReceta) => {
-            const guardada = registrarReceta(paciente, datosReceta);
-            await ejecutar('nueva', () => generarRecetaPDF(paciente, guardada || datosReceta), 'Receta emitida y descargada.');
+            let guardada;
+            try {
+              guardada = await emitirReceta(citaParaReceta.id, datosReceta);
+            } catch (error) {
+              if (!error.detalles) toast.error(error.message);
+              throw error;
+            }
             setReceta(false);
+            onCambio?.();
+            await ejecutar('nueva', () => generarRecetaPDF(paciente, guardada), `Receta ${guardada.numero} emitida y descargada.`);
           }}
         />
       )}
