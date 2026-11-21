@@ -2,8 +2,8 @@
 //   GET    /api/consultas/agenda                         pacientes preparados de hoy y métricas
 //   GET    /api/consultas/:citaId                        todo lo necesario para atender
 //   POST   /api/consultas/:citaId/diagnosticos           { piezas, procedimiento, descripcion, notas, estado }
-//   PUT    /api/consultas/:citaId/odontograma/:pieza     { estado }
-//   DELETE /api/consultas/:citaId/odontograma/:pieza     quita la marca hecha en esta consulta
+//   PUT    /api/consultas/:citaId/odontograma/:pieza     { estado, cara? } (cara: COMPLETA u OCLUSAL, MESIAL…)
+//   DELETE /api/consultas/:citaId/odontograma/:pieza     quita las marcas de esa pieza hechas en esta consulta
 //   DELETE /api/consultas/:citaId/odontograma            quita todas las marcas de esta consulta
 //   POST   /api/consultas/:citaId/recetas                { medicamentos: [...], indicaciones }
 //   POST   /api/consultas/:citaId/consentimientos        { procedimiento, esRepresentante, firmante }
@@ -16,6 +16,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { revisarReceta } from '../../../shared/alergias.js';
+import { CARAS, resumirMarcas } from '../../../shared/odontograma.js';
 import {
   MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, requiereConsentimiento, textoConsentimiento,
 } from '../../../shared/consentimientos.js';
@@ -73,19 +74,15 @@ async function citaEnConsulta(id, { permitirAtendida = false } = {}) {
 /** Odontograma: lo anterior a esta cita y lo marcado en ella, { pieza: estado } */
 async function odontogramaDeCita(cita) {
   const marcas = await prisma.marcaOdontograma.findMany({
-    where: { pacienteId: cita.pacienteId, cara: 'COMPLETA' },
+    where: { pacienteId: cita.pacienteId },
     include: { cita: { select: { inicio: true } } },
     orderBy: { creadoEn: 'asc' },
   });
-  const anterior = {};
-  const actual = {};
-  marcas
-    .filter((m) => m.citaId !== cita.id && m.cita.inicio <= cita.inicio)
-    .forEach((m) => { anterior[m.pieza] = m.estado; });
-  marcas.filter((m) => m.citaId === cita.id).forEach((m) => { actual[m.pieza] = m.estado; });
-  return { anterior, actual };
+  return {
+    anterior: resumirMarcas(marcas.filter((m) => m.citaId !== cita.id && m.cita.inicio <= cita.inicio)),
+    actual: resumirMarcas(marcas.filter((m) => m.citaId === cita.id)),
+  };
 }
-
 // ==================== AGENDA ====================
 
 rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
@@ -217,19 +214,28 @@ rutasConsultas.post('/:citaId/diagnosticos', puedeAtender, async (req, res) => {
 
 rutasConsultas.put('/:citaId/odontograma/:pieza', puedeAtender, async (req, res) => {
   const { pieza } = validar(z.object({ pieza: esquemaPieza }), req.params);
-  const { estado } = validar(z.object({
+  const { estado, cara } = validar(z.object({
     estado: z.enum(ESTADOS_DIENTE, { errorMap: () => ({ message: 'Estado de pieza inválido.' }) }),
+    cara: z.enum(['COMPLETA', ...CARAS], { errorMap: () => ({ message: 'Cara del diente inválida.' }) }).default('COMPLETA'),
+  }).refine((d) => d.estado !== 'AUSENTE' || d.cara === 'COMPLETA', {
+    message: 'Una pieza ausente se marca completa, no por caras.', path: ['cara'],
   }), req.body);
   const cita = await citaEnConsulta(req.params.citaId);
 
-  await prisma.marcaOdontograma.upsert({
-    where: { citaId_pieza_cara: { citaId: cita.id, pieza, cara: 'COMPLETA' } },
-    update: { estado, registradoPorId: req.usuario.id },
-    create: {
-      pacienteId: cita.pacienteId, citaId: cita.id, pieza, cara: 'COMPLETA', estado, registradoPorId: req.usuario.id,
-    },
-  });
-  await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Odontograma', entidadId: cita.id, detalle: { pieza, estado } });
+  // En una misma visita, la pieza se registra completa o por caras, no las dos cosas
+  await prisma.$transaction([
+    prisma.marcaOdontograma.deleteMany({
+      where: { citaId: cita.id, pieza, cara: cara === 'COMPLETA' ? { not: 'COMPLETA' } : 'COMPLETA' },
+    }),
+    prisma.marcaOdontograma.upsert({
+      where: { citaId_pieza_cara: { citaId: cita.id, pieza, cara } },
+      update: { estado, registradoPorId: req.usuario.id },
+      create: {
+        pacienteId: cita.pacienteId, citaId: cita.id, pieza, cara, estado, registradoPorId: req.usuario.id,
+      },
+    }),
+  ]);
+  await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Odontograma', entidadId: cita.id, detalle: { pieza, cara, estado } });
   res.json({ odontograma: await odontogramaDeCita(cita) });
 });
 

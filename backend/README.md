@@ -141,7 +141,7 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `GET /api/consultas/agenda` | Odontología, Admin | Pacientes preparados de hoy, atendidos, procedimientos del mes |
 | `GET /api/consultas/:citaId` | Odontología, Admin | Paciente, signos, alertas, antecedentes, historial, odontograma y recetas de la cita |
 | `POST /api/consultas/:citaId/diagnosticos` | Odontología | `{ piezas: "16, 26", procedimiento, descripcion, notas, estado }`. Piezas en numeración FDI |
-| `PUT /api/consultas/:citaId/odontograma/:pieza` | Odontología | `{ estado }`: SANO, CARIES, TRATADO, OBSERVACION o AUSENTE |
+| `PUT /api/consultas/:citaId/odontograma/:pieza` | Odontología | `{ estado, cara? }`. Estado: SANO, CARIES, TRATADO, OBSERVACION o AUSENTE. Cara: COMPLETA (por defecto), VESTIBULAR, LINGUAL, MESIAL, DISTAL u OCLUSAL. AUSENTE solo para la pieza completa |
 | `DELETE /api/consultas/:citaId/odontograma/:pieza` | Odontología | Quita la marca de esa pieza hecha en esta consulta |
 | `DELETE /api/consultas/:citaId/odontograma` | Odontología | Quita todas las marcas de esta consulta |
 | `POST /api/consultas/:citaId/recetas` | Odontología | `{ medicamentos: [{ medicamento, dosis, frecuencia, duracion }], indicaciones, confirmarAlergias }`. Número RX-AAAAMMDD-0001. También después de finalizar |
@@ -150,8 +150,11 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 
 ### Odontograma
 
-Cada visita guarda sus propias marcas. Lo que se muestra es la marca más reciente de cada pieza,
-así que quitar una marca de hoy no borra la historia: la pieza vuelve a lo que tenía en la visita anterior.
+Cada visita guarda sus propias marcas, del diente completo o por caras. Lo que se muestra es la marca
+más reciente de cada pieza y de cada cara, así que quitar una marca de hoy no borra la historia: la pieza
+vuelve a lo que tenía en la visita anterior. Un diente completo más reciente reemplaza a las caras anteriores.
+En una misma visita la pieza se registra completa o por caras. Las reglas están en [`shared/odontograma.js`](../shared/odontograma.js).
+La API devuelve `{ [pieza]: { completa, caras: { OCLUSAL: "CARIES" } } }`.
 
 ### Consentimiento informado
 

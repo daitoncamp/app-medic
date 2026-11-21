@@ -5,6 +5,7 @@
 //   PATCH /api/pacientes/:cedula           editar datos (recepción, administración)
 
 import { Router } from 'express';
+import { resumirMarcas } from '../../../shared/odontograma.js';
 import { z } from 'zod';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, noEncontrado } from '../lib/errores.js';
@@ -127,9 +128,8 @@ rutasPacientes.get('/:cedula', async (req, res) => {
   });
   if (!paciente) throw noEncontrado('Paciente');
 
-  // Odontograma actual: la marca más reciente de cada pieza
-  const odontograma = {};
-  paciente.marcas.forEach((m) => { odontograma[m.pieza] = m.estado; });
+  // Odontograma actual: por pieza, el diente completo y sus caras según la marca más reciente
+  const odontograma = resumirMarcas(paciente.marcas);
 
   await auditar(req, { accion: 'VER', entidad: 'Paciente', entidadId: paciente.id });
 
