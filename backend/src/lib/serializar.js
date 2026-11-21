@@ -40,3 +40,16 @@ export const citaPublica = (c) => ({
   motivoAnulacion: c.motivoAnulacion,
   ...(c.paciente ? { paciente: pacienteResumen(c.paciente) } : {}),
 });
+
+export const recetaPublica = (r) => ({
+  id: r.id,
+  numero: r.numero,
+  citaId: r.citaId,
+  indicaciones: r.indicaciones,
+  anuladaEn: r.anuladaEn,
+  creadoEn: r.creadoEn,
+  odontologo: r.odontologo?.nombre,
+  medicamentos: r.medicamentos.map(({ medicamento, dosis, frecuencia, duracion }) => ({
+    medicamento, dosis, frecuencia, duracion,
+  })),
+});

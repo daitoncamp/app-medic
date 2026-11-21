@@ -92,9 +92,9 @@ npm run db:seed
 La migración agrega la columna `textoBusqueda` (búsqueda sin tildes: "macias" encuentra "Macías").
 El seed vuelve a cargar los datos de prueba con esa columna llena.
 
-### Actualizar a la fase 3.2 (enfermería)
+### Actualizar a las fases 3.2 y 3.3 (enfermería y consulta)
 
-No hay migración nueva: basta con `git pull` y reiniciar `npm run dev` en `backend`.
+No hay migraciones nuevas: basta con `git pull` y reiniciar `npm run dev` en `backend`.
 
 ## Usuarios de prueba
 
@@ -135,6 +135,27 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/citas/:id/anular` | Recepción, Admin | `{ motivo }`. Las citas no se borran: quedan anuladas con motivo y usuario |
 | `GET /api/enfermeria/sala` | Enfermería, Odontología, Admin | Sala de espera (con alergias y antecedentes), preparados, alertas de hoy, últimas tomas y métricas |
 | `POST /api/enfermeria/citas/:id/signos` | Enfermería, Admin | `{ presion: "120/80", pulso, temperatura, observaciones }`. Evalúa según la edad, crea las alertas y pasa la cita a preparada. 409 si otra persona ya lo registró |
+
+| `GET /api/consultas/agenda` | Odontología, Admin | Pacientes preparados de hoy, atendidos, procedimientos del mes |
+| `GET /api/consultas/:citaId` | Odontología, Admin | Paciente, signos, alertas, antecedentes, historial, odontograma y recetas de la cita |
+| `POST /api/consultas/:citaId/diagnosticos` | Odontología | `{ piezas: "16, 26", procedimiento, descripcion, notas, estado }`. Piezas en numeración FDI |
+| `PUT /api/consultas/:citaId/odontograma/:pieza` | Odontología | `{ estado }`: SANO, CARIES, TRATADO, OBSERVACION o AUSENTE |
+| `DELETE /api/consultas/:citaId/odontograma/:pieza` | Odontología | Quita la marca de esa pieza hecha en esta consulta |
+| `DELETE /api/consultas/:citaId/odontograma` | Odontología | Quita todas las marcas de esta consulta |
+| `POST /api/consultas/:citaId/recetas` | Odontología | `{ medicamentos: [{ medicamento, dosis, frecuencia, duracion }], indicaciones, confirmarAlergias }`. Número RX-AAAAMMDD-0001. También después de finalizar |
+| `POST /api/consultas/:citaId/finalizar` | Odontología | La cita queda atendida |
+
+### Odontograma
+
+Cada visita guarda sus propias marcas. Lo que se muestra es la marca más reciente de cada pieza,
+así que quitar una marca de hoy no borra la historia: la pieza vuelve a lo que tenía en la visita anterior.
+
+### Recetas y alergias
+
+Una receta puede tener hasta 10 medicamentos (el formulario permite 5). No se editan: quedan con su número.
+Si un medicamento coincide con una alergia registrada (por nombre o por grupo, como penicilinas o AINE),
+la API responde 409 hasta que la odontóloga confirme con `confirmarAlergias: true`. La confirmación queda en la auditoría.
+Las reglas están en [`shared/alergias.js`](../shared/alergias.js). Es una ayuda: no reemplaza el criterio clínico.
 
 ### Signos vitales y alertas
 
