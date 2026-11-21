@@ -121,6 +121,9 @@ model Usuario {
   activo        Boolean   @default(true)
   /// Para obligar a cambiar la contraseña temporal en el primer ingreso
   debeCambiarPassword Boolean @default(true)
+  /// Intentos fallidos seguidos; al llegar al límite se bloquea un tiempo
+  intentosFallidos Int       @default(0)
+  bloqueadoHasta   DateTime?
   ultimoAcceso  DateTime?
   creadoEn      DateTime  @default(now())
   actualizadoEn DateTime  @updatedAt
