@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  faCircleCheck, faCircleExclamation, faFileMedical, faFilePdf, faFloppyDisk, faPrescription, faTooth, faUserClock,
+  faCircleCheck, faCircleExclamation, faFileMedical, faFilePdf, faFileSignature, faFloppyDisk, faPrescription, faTooth,
+  faUserClock,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   AlertList, Badge, Button, Card, EmptyState, Field, FieldRow, PageHeader, Table, Tabs, useConfirm, useToast,
@@ -10,14 +11,16 @@ import { useRecurso } from '../../hooks/useRecurso';
 import { obtenerSesion } from '../../services/authService';
 import {
   deshacerMarcasDeHoy, emitirReceta, ESTADOS_PROCEDIMIENTO, finalizarConsulta, marcarPieza,
-  obtenerAgenda, obtenerConsulta, PROCEDIMIENTOS, registrarDiagnostico,
+  obtenerAgenda, obtenerConsulta, PROCEDIMIENTOS, registrarConsentimiento, registrarDiagnostico,
 } from '../../services/consultaApi';
+import { requiereConsentimiento } from '../../utils/consentimientos';
 import { TEXTO_ANTECEDENTE } from '../../services/recepcionApi';
 import { formatearFecha } from '../../utils/formato';
 import { requerido, validarFormulario } from '../../utils/validaciones';
+import ConsentimientoModal from './ConsentimientoModal';
 import Odontograma from './Odontograma';
 import RecetaModal from './RecetaModal';
-import { generarHistorialPDF, generarRecetaPDF } from './pdf';
+import { generarConsentimientoPDF, generarHistorialPDF, generarRecetaPDF } from './pdf';
 import styles from './Consulta.module.css';
 
 const ESTADOS_HISTORIAL = { completado: ['success', 'Completado'], proceso: ['info', 'En proceso'], pendiente: ['warning', 'Pendiente'] };
@@ -63,6 +66,7 @@ function ConsultaPage() {
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
   const [receta, setReceta] = useState(false);
+  const [consentimiento, setConsentimiento] = useState(null); // null | { procedimiento }
   const [fechaPdf, setFechaPdf] = useState('');
   // Cambios del odontograma que aún no confirma el servidor (se ven al instante)
   const [odontoLocal, setOdontoLocal] = useState(null);
@@ -255,7 +259,20 @@ function ConsultaPage() {
     );
   }
 
-  const { paciente, historial, deEstaConsulta, antecedentes, recetas } = detalle;
+  const {
+    paciente, historial, deEstaConsulta, antecedentes, recetas, consentimientos,
+  } = detalle;
+  const procedimientosFirmados = consentimientos.map((c) => c.procedimiento);
+  const necesitaConsentimiento = requiereConsentimiento(form.procedimiento) && form.estado !== 'PENDIENTE';
+  const tieneConsentimiento = procedimientosFirmados.includes(form.procedimiento);
+
+  const descargarConsentimiento = async (c) => {
+    try {
+      await generarConsentimientoPDF(paciente, c);
+    } catch {
+      toast.error('No se pudo generar el PDF del consentimiento.');
+    }
+  };
   const sv = paciente.signosVitales;
   const otrosAntecedentes = antecedentes.filter((a) => a.tipo !== 'ALERGIA');
   const odontogramaVisible = { ...odontograma.anterior, ...odontograma.actual };
@@ -276,6 +293,9 @@ function ConsultaPage() {
               </div>
               <div className={styles.patientActions}>
                 <Button as={Link} to={`/pacientes/${paciente.cedula}`} variant="ghost" size="sm" icon={faFileMedical}>Ficha</Button>
+                <Button variant="secondary" size="sm" icon={faFileSignature} onClick={() => setConsentimiento({ procedimiento: form.procedimiento })}>
+                  Consentimiento{consentimientos.length ? ` (${consentimientos.length})` : ''}
+                </Button>
                 <Button variant="secondary" size="sm" icon={faPrescription} onClick={() => setReceta(true)}>
                   Receta{recetas.length ? ` (${recetas.length})` : ''}
                 </Button>
@@ -345,6 +365,16 @@ function ConsultaPage() {
                         </button>
                       ))}
                     </div>
+                    {necesitaConsentimiento && (tieneConsentimiento ? (
+                      <p className={styles.consentOk}>✓ Consentimiento informado de {form.procedimiento.toLowerCase()} registrado.</p>
+                    ) : (
+                      <div className={styles.consentWarning} role="status">
+                        <span>{form.procedimiento} requiere consentimiento informado antes de realizarse.</span>
+                        <Button size="sm" variant="secondary" icon={faFileSignature} onClick={() => setConsentimiento({ procedimiento: form.procedimiento })}>
+                          Registrar consentimiento
+                        </Button>
+                      </div>
+                    ))}
                     <Field as="select" label="Estado del procedimiento" value={form.estado} onChange={cambiar('estado')} error={errores.estado}>
                       {ESTADOS_PROCEDIMIENTO.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
                     </Field>
@@ -364,10 +394,16 @@ function ConsultaPage() {
                     </div>
                   </form>
 
-                  {deEstaConsulta.length > 0 && (
+                  {(deEstaConsulta.length > 0 || consentimientos.length > 0) && (
                     <div className={styles.saved}>
                       <h3 className={styles.savedTitle}>Registrado en esta consulta</h3>
                       <ul>
+                        {consentimientos.map((c) => (
+                          <li key={c.id}>
+                            <strong>Consentimiento</strong> · {c.procedimiento} — firmó {c.esRepresentante ? `${c.firmanteNombre} (representante)` : 'el paciente'}{' '}
+                            <Button size="sm" variant="ghost" icon={faFilePdf} onClick={() => descargarConsentimiento(c)}>PDF</Button>
+                          </li>
+                        ))}
                         {deEstaConsulta.map((h) => {
                           const [tono, texto] = ESTADOS_HISTORIAL[h.estado] || ['neutral', h.estado];
                           return (
@@ -443,6 +479,22 @@ function ConsultaPage() {
 
         {panelAgenda}
       </div>
+
+      {consentimiento && (
+        <ConsentimientoModal
+          paciente={paciente}
+          procedimientoInicial={consentimiento.procedimiento}
+          yaFirmados={procedimientosFirmados}
+          onClose={() => setConsentimiento(null)}
+          onRegistrar={async (datos) => {
+            const guardado = await registrarConsentimiento(citaId, datos);
+            setConsentimiento(null);
+            detalleRecurso.recargar();
+            toast.success(`Consentimiento de ${guardado.procedimiento.toLowerCase()} registrado. Imprime el PDF para las firmas.`, 6000);
+            await descargarConsentimiento(guardado);
+          }}
+        />
+      )}
 
       {receta && (
         <RecetaModal

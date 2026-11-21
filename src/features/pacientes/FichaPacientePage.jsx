@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faPhone,
+  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faFileSignature, faHeartPulse, faPhone,
   faPrescription, faTooth, faUserSlash,
 } from '@fortawesome/free-solid-svg-icons';
 import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
@@ -19,6 +19,7 @@ const TIPO_EVENTO = {
   diagnostico: { icon: faTooth, tone: 'purple' },
   alerta: { icon: faCircleExclamation, tone: 'danger' },
   receta: { icon: faPrescription, tone: 'info' },
+  consentimiento: { icon: faFileSignature, tone: 'purple' },
 };
 
 /** Ficha única del paciente: todo su historial en una línea de tiempo */

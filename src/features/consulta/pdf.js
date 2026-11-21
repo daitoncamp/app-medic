@@ -91,11 +91,20 @@ function encabezado(doc, logo, { titulo, numero, fecha }) {
   doc.text('Carrera de Odontología', MARGEN + 30, 23.5);
   doc.text('Clínica Odontológica', MARGEN + 30, 28);
 
+  // El título va a la derecha sin pisar el nombre de la universidad (máx. 46 mm)
   fuente(doc, 13, 'bold', C.marca);
-  doc.text(titulo, ANCHO - MARGEN, 18, { align: 'right' });
-  fuente(doc, 8.5, 'normal', C.suave);
-  doc.text(`N.º ${numero}`, ANCHO - MARGEN, 23.5, { align: 'right' });
-  doc.text(fecha, ANCHO - MARGEN, 28, { align: 'right' });
+  if (doc.getTextWidth(titulo) <= 46) {
+    doc.text(titulo, ANCHO - MARGEN, 18, { align: 'right' });
+    fuente(doc, 8.5, 'normal', C.suave);
+    doc.text(`N.º ${numero}`, ANCHO - MARGEN, 23.5, { align: 'right' });
+    doc.text(fecha, ANCHO - MARGEN, 28, { align: 'right' });
+  } else {
+    fuente(doc, 11.5, 'bold', C.marca);
+    doc.text(doc.splitTextToSize(titulo, 46), ANCHO - MARGEN, 14.5, { align: 'right', lineHeightFactor: 1.1 });
+    fuente(doc, 8.5, 'normal', C.suave);
+    doc.text(`N.º ${numero}`, ANCHO - MARGEN, 25.5, { align: 'right' });
+    doc.text(fecha, ANCHO - MARGEN, 29.5, { align: 'right' });
+  }
 
   relleno(doc, C.marca);
   doc.rect(MARGEN, 36, CONTENIDO, 0.9, 'F');
@@ -574,4 +583,94 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
 
   piesDePagina(doc);
   doc.save(`Historial_${nombreArchivo(paciente.nombre)}${fecha ? `_${fecha}` : ''}.pdf`);
+}
+
+// ==================== CONSENTIMIENTO INFORMADO ====================
+
+/** Línea de firma con nombre y cédula debajo */
+function lineaFirma(doc, x, y, ancho, nombre, detalle) {
+  trazo(doc, C.suave);
+  doc.setLineWidth(0.3);
+  doc.line(x, y, x + ancho, y);
+  fuente(doc, 9.5, 'bold');
+  doc.text(doc.splitTextToSize(nombre, ancho)[0], x + ancho / 2, y + 5, { align: 'center' });
+  fuente(doc, 8, 'normal', C.suave);
+  doc.text(detalle, x + ancho / 2, y + 9.5, { align: 'center' });
+}
+
+/**
+ * Consentimiento ya registrado en el sistema, para imprimir y firmar.
+ * consentimiento: { procedimiento, textoAceptado, firmanteNombre, firmanteCedula, esRepresentante, aceptadoEn, odontologo }
+ */
+export async function generarConsentimientoPDF(paciente, consentimiento) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const logo = await cargarImagen(logoUleam);
+
+  let y = encabezado(doc, logo, {
+    titulo: 'CONSENTIMIENTO INFORMADO',
+    numero: `CI-${fechaLocalISO(aFecha(consentimiento.aceptadoEn) || new Date()).replace(/-/g, '')}-${paciente.cedula.slice(-4)}`,
+    fecha: formatearFechaHora(consentimiento.aceptadoEn),
+  });
+
+  y = recuadroDatos(doc, datosPaciente(paciente, [
+    { etiqueta: 'Procedimiento', valor: consentimiento.procedimiento },
+    { etiqueta: 'Firma', valor: consentimiento.esRepresentante ? 'Representante' : 'El paciente' },
+  ]), y);
+
+  // Texto aceptado, tal como quedó guardado. Cada línea se dibuja aparte para
+  // mantener el mismo interlineado; las etiquetas ("En qué consiste:") van en negrita.
+  const INTERLINEA = 4.8;
+  const parrafos = consentimiento.textoAceptado.split('\n\n');
+  parrafos.forEach((parrafo, i) => {
+    const ultimo = i === parrafos.length - 1;
+    const etiqueta = (/^([^:.]{3,40}:)\s/.exec(parrafo) || [])[1];
+    fuente(doc, 10, ultimo ? 'bold' : 'normal');
+    const lineas = doc.splitTextToSize(parrafo, CONTENIDO);
+    if (y + lineas.length * INTERLINEA > LIMITE_INFERIOR - 5) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    lineas.forEach((linea, j) => {
+      const yLinea = y + j * INTERLINEA;
+      if (j === 0 && etiqueta && linea.startsWith(etiqueta)) {
+        fuente(doc, 10, 'bold');
+        doc.text(etiqueta, MARGEN, yLinea);
+        const ancho = doc.getTextWidth(etiqueta);
+        fuente(doc, 10, 'normal');
+        doc.text(linea.slice(etiqueta.length), MARGEN + ancho, yLinea);
+      } else {
+        fuente(doc, 10, ultimo ? 'bold' : 'normal');
+        doc.text(linea, MARGEN, yLinea);
+      }
+    });
+    y += lineas.length * INTERLINEA + 3;
+  });
+
+  // Firmas: quien acepta y la odontóloga
+  if (y + 62 > LIMITE_INFERIOR) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = Math.max(y + 22, 0);
+  const anchoFirma = (CONTENIDO - 20) / 2;
+  lineaFirma(
+    doc, MARGEN, y, anchoFirma, consentimiento.firmanteNombre,
+    `C.I. ${consentimiento.firmanteCedula}${consentimiento.esRepresentante ? ' · Representante' : ' · Paciente'}`,
+  );
+  lineaFirma(doc, MARGEN + anchoFirma + 20, y, anchoFirma, consentimiento.odontologo || ODONTOLOGA, 'Odontóloga tratante');
+
+  // Revocatoria (se llena solo si el paciente cambia de opinión)
+  y += 20;
+  relleno(doc, C.fondo);
+  trazo(doc, C.borde);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGEN, y, CONTENIDO, 24, 2, 2, 'FD');
+  fuente(doc, 7.5, 'bold', C.tenue);
+  doc.text('REVOCATORIA', MARGEN + 4, y + 5.5);
+  fuente(doc, 8.5, 'normal', C.suave);
+  doc.text('Retiro este consentimiento y no autorizo el procedimiento.', MARGEN + 4, y + 10.5);
+  doc.text('Firma: ______________________________    C.I.: ________________    Fecha: ____________', MARGEN + 4, y + 19);
+
+  piesDePagina(doc);
+  doc.save(`Consentimiento_${nombreArchivo(consentimiento.procedimiento)}_${nombreArchivo(paciente.nombre)}.pdf`);
 }

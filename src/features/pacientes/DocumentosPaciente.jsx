@@ -8,7 +8,7 @@ import { ESTADOS_CITA } from '../../services/clinica';
 import { emitirReceta } from '../../services/consultaApi';
 import { formatearFechaHora } from '../../utils/formato';
 import RecetaModal from '../consulta/RecetaModal';
-import { generarHistorialPDF, generarRecetaPDF } from '../consulta/pdf';
+import { generarConsentimientoPDF, generarHistorialPDF, generarRecetaPDF } from '../consulta/pdf';
 import styles from './Pacientes.module.css';
 
 // Quién puede hacer qué con los documentos del paciente
@@ -133,6 +133,31 @@ function DocumentosPaciente({ ficha, onCambio }) {
           ))
         ) : (
           <EmptyState compact title="Sin recetas" text={puedeEmitir ? 'Usa “Nueva receta” para emitir una.' : 'La odontóloga aún no ha emitido recetas.'} />
+        )}
+
+        {ficha.consentimientos.length > 0 && (
+          <>
+            <p className={styles.documentsSubtitle}>Consentimientos informados</p>
+            {ficha.consentimientos.map((c) => (
+              <div key={c.id} className={styles.document}>
+                <div>
+                  <p className={styles.documentTitle}>{c.procedimiento}</p>
+                  <p className={styles.documentMeta}>
+                    {c.esRepresentante ? `Firmó ${c.firmanteNombre} (representante)` : 'Firmó el paciente'} · {formatearFechaHora(c.aceptadoEn)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={faFilePdf}
+                  disabled={generando === c.id}
+                  onClick={() => ejecutar(c.id, () => generarConsentimientoPDF(paciente, c), 'Consentimiento descargado.')}
+                >
+                  Descargar
+                </Button>
+              </div>
+            ))}
+          </>
         )}
       </div>
 

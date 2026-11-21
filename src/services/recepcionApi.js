@@ -218,6 +218,7 @@ export async function obtenerFicha(cedula) {
     .sort((a, b) => String(a.fechaRegistro).localeCompare(String(b.fechaRegistro)));
 
   const recetas = d.citas.flatMap((c) => c.recetas.filter((r) => !r.anuladaEn).map((r) => adaptarReceta(r, c.id)));
+  const consentimientos = d.citas.flatMap((c) => c.consentimientos || []);
 
   const conSignos = d.citas.find((c) => c.signosVitales);
   const ultimosSignos = conSignos && {
@@ -264,6 +265,13 @@ export async function obtenerFicha(cedula) {
       titulo: `Receta: ${r.medicamentos.map((m) => m.medicamento).join(', ')}`,
       detalle: r.medicamentos.map((m) => `${m.dosis} · ${m.frecuencia} · ${m.duracion}`).join(' / '),
     })),
+    ...consentimientos.map((c) => ({
+      id: `consentimiento-${c.id}`,
+      tipo: 'consentimiento',
+      fecha: c.aceptadoEn,
+      titulo: `Consentimiento informado: ${c.procedimiento}`,
+      detalle: c.esRepresentante ? `Firmó ${c.firmanteNombre} (representante)` : 'Firmó el paciente',
+    })),
   ].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 
   return {
@@ -275,6 +283,7 @@ export async function obtenerFicha(cedula) {
     eventos,
     alertas,
     recetas: recetas.reverse(),
+    consentimientos: consentimientos.reverse(),
     historial,
     ultimosSignos,
     odontograma,

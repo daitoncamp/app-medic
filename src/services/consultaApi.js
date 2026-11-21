@@ -95,6 +95,7 @@ export async function obtenerConsulta(citaId) {
     deEstaConsulta: historial.filter((h) => h.citaId === d.cita.id),
     odontograma: adaptarOdontograma(d.odontograma),
     recetas: d.recetas.filter((r) => !r.anuladaEn).map((r) => adaptarReceta(r)),
+    consentimientos: d.consentimientos,
   };
 }
 
@@ -142,4 +143,13 @@ export async function emitirReceta(citaId, receta) {
 
 export async function finalizarConsulta(citaId) {
   return adaptarCita((await api(`/consultas/${citaId}/finalizar`, { method: 'POST' })).cita);
+}
+
+/**
+ * { procedimiento, esRepresentante, firmante: { nombre, cedula, parentesco }, aceptado: true }
+ * Los errores de la API llegan con claves "firmante.nombre", etc.
+ */
+export async function registrarConsentimiento(citaId, datos) {
+  const r = await api(`/consultas/${citaId}/consentimientos`, { method: 'POST', body: datos });
+  return r.consentimiento;
 }
