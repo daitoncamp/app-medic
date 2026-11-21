@@ -1,4 +1,5 @@
 // Punto único de importación de los componentes de interfaz
+export { default as AlertList } from './AlertList';
 export { default as Badge, EstadoCita } from './Badge';
 export { default as BarChart } from './BarChart';
 export { default as Button, IconButton } from './Button';

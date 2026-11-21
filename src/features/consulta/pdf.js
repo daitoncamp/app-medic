@@ -36,6 +36,13 @@ const ESTADOS_HISTORIAL = {
   pendiente: { texto: 'Pendiente', fondo: [254, 249, 195], color: [161, 98, 7] },
 };
 
+// Colores de las alertas por severidad: [fondo, color]
+const SEVERIDADES = {
+  critica: { fondo: [254, 226, 226], color: [185, 28, 28], texto: 'URGENTE' },
+  alta: { fondo: [255, 237, 213], color: [194, 65, 12], texto: 'IMPORTANTE' },
+  moderada: { fondo: [254, 249, 195], color: [161, 98, 7], texto: 'VIGILAR' },
+};
+
 const hexARgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 // ==================== UTILIDADES DE DIBUJO ====================
@@ -145,6 +152,36 @@ function aviso(doc, texto, y) {
   return y + alto + 7;
 }
 
+/** Lista de alertas médicas con el color de su severidad */
+function alertasPDF(doc, alertas, y) {
+  alertas.forEach((a) => {
+    const sev = SEVERIDADES[a.severidad] || SEVERIDADES.alta;
+    fuente(doc, 9);
+    const lineas = a.descripcion ? doc.splitTextToSize(a.descripcion, CONTENIDO - 12) : [];
+    const alto = 8 + lineas.length * 4.2;
+    if (y + alto > LIMITE_INFERIOR) {
+      doc.addPage();
+      y = 20;
+    }
+    relleno(doc, sev.fondo);
+    doc.roundedRect(MARGEN, y, CONTENIDO, alto, 1.8, 1.8, 'F');
+    relleno(doc, sev.color);
+    doc.rect(MARGEN, y, 1.4, alto, 'F');
+
+    fuente(doc, 9.5, 'bold', sev.color);
+    doc.text(a.titulo, MARGEN + 6, y + 5.5);
+    const anchoTitulo = doc.getTextWidth(a.titulo);
+    fuente(doc, 6.5, 'bold', sev.color);
+    doc.text(sev.texto, MARGEN + 9 + anchoTitulo, y + 5.4);
+    if (lineas.length) {
+      fuente(doc, 9, 'normal', C.texto);
+      doc.text(lineas, MARGEN + 6, y + 10);
+    }
+    y += alto + 2.5;
+  });
+  return y + 5;
+}
+
 /** Línea de firma de la odontóloga */
 function firma(doc, y) {
   const x = ANCHO - MARGEN - 70;
@@ -193,10 +230,11 @@ export async function generarRecetaPDF(paciente, receta) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const logo = await cargarImagen(logoUleam);
 
+  // Una receta guardada conserva su número y fecha al volver a descargarla
   let y = encabezado(doc, logo, {
     titulo: 'RECETA MÉDICA',
-    numero: numeroDocumento('RX'),
-    fecha: formatearFechaHora(new Date()),
+    numero: receta.numero || numeroDocumento('RX'),
+    fecha: formatearFechaHora(receta.fechaRegistro || new Date()),
   });
 
   y = recuadroDatos(doc, datosPaciente(paciente, [
@@ -399,7 +437,10 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
     { etiqueta: 'Registros', valor: String(registros.length) },
   ]), y);
 
-  if (tieneAlergia(paciente)) {
+  if (paciente.alertas?.length) {
+    y = seccion(doc, 'Alertas médicas', y);
+    y = alertasPDF(doc, paciente.alertas, y);
+  } else if (tieneAlergia(paciente)) {
     y = aviso(doc, `Atención: ${paciente.alergias}`, y);
   }
 
@@ -407,9 +448,11 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
   if (paciente.signosVitales) {
     y = seccion(doc, 'Signos vitales (enfermería)', y);
     const sv = paciente.signosVitales;
-    const datos = [['Presión arterial', sv.presion], ['Pulso', sv.pulso], ['Temperatura', sv.temperatura]];
+    const datos = [['Presión arterial', sv.presion, 'presion'], ['Pulso', sv.pulso, 'pulso'], ['Temperatura', sv.temperatura, 'temperatura']];
     const ancho = (CONTENIDO - 8) / 3;
-    datos.forEach(([etiqueta, valor], i) => {
+    datos.forEach(([etiqueta, valor, signo], i) => {
+      // El valor se pinta del color de la alerta si está fuera de lo normal
+      const fuera = (sv.hallazgos || []).find((h) => h.signo === signo);
       const x = MARGEN + i * (ancho + 4);
       relleno(doc, C.fondo);
       trazo(doc, C.borde);
@@ -417,8 +460,12 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
       doc.roundedRect(x, y, ancho, 15, 2, 2, 'FD');
       fuente(doc, 7, 'bold', C.tenue);
       doc.text(etiqueta.toUpperCase(), x + 4, y + 5.5);
-      fuente(doc, 12, 'bold');
+      fuente(doc, 12, 'bold', fuera ? (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color : C.texto);
       doc.text(String(valor || '-'), x + 4, y + 11.5);
+      if (fuera) {
+        fuente(doc, 7.5, 'bold', (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color);
+        doc.text(fuera.titulo, x + ancho - 4, y + 11.5, { align: 'right' });
+      }
     });
     y += 23;
   }

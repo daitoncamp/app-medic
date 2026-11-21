@@ -9,6 +9,8 @@
 //   pasa a odontología) → Atendida (consulta finalizada)
 //   También puede quedar como "No asistió".
 
+import { evaluarSignosVitales } from '../utils/signosVitales';
+
 const SYNC_KEY = 'clinicaDentalSync';
 export const EVENTO_ACTUALIZACION = 'syncUpdate';
 
@@ -26,7 +28,8 @@ const estructuraInicial = Object.freeze({
   pacientesEnEspera: [],      // Cola de enfermería
   pacientesPreparados: [],    // Con signos vitales, esperando a la odontóloga
   historialAtenciones: [],    // Atenciones de enfermería
-  alertasMedicas: [],         // Alergias detectadas en observaciones
+  alertasMedicas: [],         // Alergias y signos vitales fuera de lo normal
+  recetas: [],                // Recetas emitidas (se pueden volver a descargar)
   historialOdontologico: [],  // Diagnósticos y procedimientos
   odontogramas: {},           // Estado de los dientes por cédula del paciente
 });
@@ -54,6 +57,24 @@ export const fechaLocalISO = (fecha = new Date()) => {
 
 const ahora = () => new Date().toISOString();
 const esAlergia = (texto = '') => /alerg/i.test(texto);
+
+/** Completa alertas guardadas por versiones anteriores (solo tenían alergias) */
+export const normalizarAlerta = (a) => ({
+  ...a,
+  tipo: a.tipo || 'alergia',
+  titulo: a.titulo || 'Alergia',
+  severidad: a.severidad || 'alta',
+});
+
+const ORDEN_SEVERIDAD = { critica: 0, alta: 1, moderada: 2 };
+export const ordenarAlertas = (alertas) =>
+  alertas.map(normalizarAlerta).sort((a, b) => ORDEN_SEVERIDAD[a.severidad] - ORDEN_SEVERIDAD[b.severidad]);
+
+/** Alertas de una visita: las de sus signos vitales y las alergias conocidas del paciente */
+export const alertasDeVisita = (datos, citaId, cedula, nombre) => ordenarAlertas(
+  datos.alertasMedicas.filter((a) => a.citaId === citaId
+    || ((a.tipo || 'alergia') === 'alergia' && (a.cedula === cedula || (!a.cedula && a.paciente === nombre)))),
+);
 
 // ==================== LECTURA Y ESCRITURA ====================
 
@@ -267,8 +288,30 @@ const enviarPacienteAEnfermeria = (cita, datos) => {
   if (original) original.enEnfermeria = true;
 };
 
-export const registrarSignosVitales = (paciente, signosVitales) =>
+/**
+ * Guarda los signos vitales y pasa al paciente a odontología.
+ * medicion = { presion: '120/80', pulso: '72', temperatura: '36.5', observaciones }
+ * Los valores fuera de lo normal para la edad del paciente generan alertas médicas.
+ */
+export const registrarSignosVitales = (paciente, medicion) =>
   modificar((datos) => {
+    const hallazgos = evaluarSignosVitales({
+      presion: medicion.presion,
+      pulso: medicion.pulso,
+      temperatura: medicion.temperatura,
+      edad: paciente.edad,
+      sexo: paciente.sexo,
+    });
+    const observaciones = medicion.observaciones?.trim() || 'Ninguna';
+    const signosVitales = {
+      presion: medicion.presion,
+      pulso: `${medicion.pulso} lpm`,
+      temperatura: `${String(medicion.temperatura).replace(',', '.')}°C`,
+      observaciones,
+      hallazgos,
+    };
+    const fecha = ahora();
+
     const preparado = {
       id: paciente.id,
       cedula: paciente.cedula,
@@ -278,9 +321,9 @@ export const registrarSignosVitales = (paciente, signosVitales) =>
       sexo: paciente.sexo,
       consulta: paciente.consulta,
       estado: 'Preparado',
-      signosVitales: { ...signosVitales },
+      signosVitales,
       fechaLlegada: paciente.fechaLlegada,
-      fechaPreparacion: ahora(),
+      fechaPreparacion: fecha,
     };
 
     datos.pacientesEnEspera = datos.pacientesEnEspera.filter((p) => p.id !== paciente.id);
@@ -290,24 +333,34 @@ export const registrarSignosVitales = (paciente, signosVitales) =>
       id: generarId('atencion'),
       cedula: paciente.cedula,
       paciente: paciente.paciente,
-      fecha: preparado.fechaPreparacion,
+      fecha,
       tratamiento: paciente.consulta || '--',
-      signosVitales: preparado.signosVitales,
-      observaciones: signosVitales.observaciones || 'Ninguna',
+      signosVitales,
+      observaciones,
       // Minutos entre la llegada a la sala de espera y la toma de signos
       minutosEspera: paciente.fechaLlegada
         ? Math.max(0, Math.round((Date.now() - new Date(paciente.fechaLlegada)) / 60000))
         : null,
     });
 
-    if (esAlergia(signosVitales.observaciones)) {
+    const base = { cedula: paciente.cedula, citaId: paciente.id, paciente: paciente.paciente, fecha };
+    hallazgos.forEach((h) => datos.alertasMedicas.push({
+      id: generarId('alerta'),
+      ...base,
+      tipo: 'signos',
+      signo: h.signo,
+      severidad: h.severidad,
+      titulo: h.titulo,
+      descripcion: h.descripcion,
+    }));
+    if (esAlergia(observaciones)) {
       datos.alertasMedicas.push({
         id: generarId('alerta'),
-        cedula: paciente.cedula,
-        paciente: paciente.paciente,
-        descripcion: signosVitales.observaciones,
+        ...base,
         tipo: 'alergia',
-        fecha: ahora(),
+        severidad: 'alta',
+        titulo: 'Alergia',
+        descripcion: observaciones,
       });
     }
 
@@ -316,7 +369,7 @@ export const registrarSignosVitales = (paciente, signosVitales) =>
       Object.assign(cita, {
         preparado: true,
         enOdontologia: true,
-        signosVitales: preparado.signosVitales,
+        signosVitales,
         estado: ESTADOS_CITA.EN_CONSULTA,
       });
     }
@@ -336,6 +389,7 @@ export const obtenerPacientesOdontologia = (datos = obtenerDatosSync()) =>
     tratamiento: p.consulta,
     alergias: esAlergia(p.signosVitales?.observaciones) ? p.signosVitales.observaciones : 'Ninguna',
     signosVitales: p.signosVitales,
+    alertas: alertasDeVisita(datos, p.id, p.cedula, p.paciente),
     fechaPreparacion: p.fechaPreparacion,
   }));
 
@@ -357,6 +411,29 @@ export const registrarDiagnostico = (paciente, diagnostico) =>
     const cita = datos.citasDelDia.find((c) => c.id === paciente.id);
     if (cita) cita.diagnostico = nuevo;
   });
+
+/** Guarda una receta emitida para poder volver a descargarla después */
+export const registrarReceta = (paciente, receta) => {
+  const fecha = new Date();
+  const hora = `${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}${String(fecha.getSeconds()).padStart(2, '0')}`;
+  const nueva = {
+    id: generarId('receta'),
+    numero: `RX-${fechaLocalISO(fecha).replace(/-/g, '')}-${hora}`,
+    citaId: paciente.id,
+    cedula: paciente.cedula,
+    paciente: paciente.nombre,
+    medicamento: receta.medicamento,
+    dosis: receta.dosis,
+    frecuencia: receta.frecuencia,
+    duracion: receta.duracion,
+    indicaciones: receta.indicaciones,
+    fechaRegistro: fecha.toISOString(),
+  };
+  const ok = modificar((datos) => {
+    datos.recetas = [...(datos.recetas || []), nueva];
+  });
+  return ok ? nueva : null;
+};
 
 /** Cierra la consulta: el paciente sale de la agenda y la cita queda atendida */
 export const finalizarConsulta = (paciente) =>
@@ -431,12 +508,20 @@ export const obtenerFichaPaciente = (cedula, datos = obtenerDatosSync()) => {
         detalle: h.diagnostico,
         notas: h.notas,
       })),
-    ...datos.alertasMedicas.filter(delPaciente).map((a) => ({
+    ...datos.alertasMedicas.filter(delPaciente).map(normalizarAlerta).map((a) => ({
       id: `e-${a.id}`,
       tipo: 'alerta',
       fecha: a.fecha,
-      titulo: 'Alerta médica',
+      titulo: `Alerta: ${a.titulo}`,
       detalle: a.descripcion,
+      severidad: a.severidad,
+    })),
+    ...(datos.recetas || []).filter((r) => r.cedula === cedula).map((r) => ({
+      id: `e-${r.id}`,
+      tipo: 'receta',
+      fecha: r.fechaRegistro,
+      titulo: `Receta: ${r.medicamento}`,
+      detalle: `${r.dosis} · ${r.frecuencia} · ${r.duracion}`,
     })),
   ].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 
@@ -444,7 +529,10 @@ export const obtenerFichaPaciente = (cedula, datos = obtenerDatosSync()) => {
     paciente,
     citas,
     eventos,
-    alertas: datos.alertasMedicas.filter(delPaciente),
+    alertas: ordenarAlertas(datos.alertasMedicas.filter(delPaciente)),
+    recetas: (datos.recetas || []).filter((r) => r.cedula === cedula).reverse(),
+    historial: obtenerHistorialOdontologico(cedula, datos),
+    ultimosSignos: [...datos.historialAtenciones].reverse().find(delPaciente)?.signosVitales || null,
     odontograma: obtenerOdontograma(cedula, datos),
   };
 };

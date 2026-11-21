@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   faCircleExclamation, faHourglassHalf, faUserCheck, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
-import { Button, Card, EmptyState, PageHeader, StatCard, StatGrid } from '../../components/ui';
+import { AlertList, Button, Card, EmptyState, PageHeader, StatCard, StatGrid } from '../../components/ui';
 import { useClinica } from '../../hooks/useClinica';
 import { alertasDeHoy, minutosDesde, preparadosHoy, tiempoPromedioEspera } from './metricas';
 import styles from './Dashboard.module.css';
@@ -66,14 +66,11 @@ function InicioEnfermeria({ sesion }) {
 
         <Card title="Alertas médicas de hoy" icon={faCircleExclamation} iconTone="danger" padded={false}>
           {alertas.length ? (
-            alertas.map((a) => (
-              <div key={a.id} className={styles.alert}>
-                <p className={styles.itemTitle}>{a.paciente}</p>
-                <p className={styles.itemSub}>{a.descripcion}</p>
-              </div>
-            ))
+            <div className={styles.alertsBody}>
+              <AlertList alertas={alertas} mostrarPaciente compact />
+            </div>
           ) : (
-            <EmptyState compact title="Sin alertas" text="Las alergias anotadas en las observaciones aparecerán aquí." />
+            <EmptyState compact title="Sin alertas" text="Aparecen aquí los signos vitales fuera de lo normal y las alergias." />
           )}
         </Card>
       </div>

@@ -2,7 +2,7 @@
 // Funciones puras: reciben los datos y devuelven números listos para mostrar.
 // Con el backend, estos cálculos pueden pasar a consultas SQL.
 
-import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
+import { ESTADOS_CITA, fechaLocalISO, ordenarAlertas } from '../../services/clinica';
 
 const hoy = () => fechaLocalISO();
 const esHoy = (valorISO) => Boolean(valorISO) && fechaLocalISO(valorISO) === hoy();
@@ -46,7 +46,7 @@ export const preparadosHoy = (datos) =>
   datos.historialAtenciones.filter((a) => esHoy(a.fecha)).length;
 
 export const alertasDeHoy = (datos) =>
-  datos.alertasMedicas.filter((a) => esHoy(a.fecha));
+  ordenarAlertas(datos.alertasMedicas.filter((a) => esHoy(a.fecha)));
 
 export const atendidosHoy = (datos) =>
   datos.citasDelDia.filter((c) => c.estado === ESTADOS_CITA.ATENDIDA && esHoy(c.fechaAtencion)).length;

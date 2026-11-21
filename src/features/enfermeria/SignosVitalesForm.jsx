@@ -1,19 +1,13 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
-import { Button, Field, FieldRow } from '../../components/ui';
+import { faCircleCheck, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { AlertList, Button, Field, FieldRow } from '../../components/ui';
 import {
-  requerido, validarFormulario, validarPresion, validarRango,
-} from '../../utils/validaciones';
+  evaluarSignosVitales, referenciasParaEdad, validarMedicion,
+} from '../../utils/signosVitales';
 import styles from './Enfermeria.module.css';
 
 const VACIO = { presion: '', pulso: '', temperatura: '', observaciones: '' };
-
-const REGLAS = {
-  presion: [requerido, validarPresion],
-  pulso: [requerido, (v) => validarRango(v, 40, 190, 'bpm')],
-  temperatura: [requerido, (v) => validarRango(v, 34, 42, '°C')],
-};
 
 // Escribe "12080" → "120/80"
 const formatearPresion = (valor) => {
@@ -21,11 +15,26 @@ const formatearPresion = (valor) => {
   return digitos.length > 3 ? `${digitos.slice(0, 3)}/${digitos.slice(3)}` : digitos;
 };
 
-const soloNumero = (valor) => valor.replace(',', '.').replace(/[^\d.]/g, '');
+const soloEntero = (valor) => valor.replace(/\D/g, '').slice(0, 3);
+const soloDecimal = (valor) => valor.replace(',', '.').replace(/[^\d.]/g, '').slice(0, 4);
 
 function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
   const [form, setForm] = useState(VACIO);
   const [errores, setErrores] = useState({});
+
+  const tieneEdad = String(paciente.edad ?? '').trim() !== '';
+  const referencias = referenciasParaEdad(paciente.edad, paciente.sexo);
+
+  // Solo se evalúan los campos completos y válidos
+  const erroresActuales = validarMedicion(form);
+  const evaluables = {
+    presion: erroresActuales.presion ? '' : form.presion,
+    pulso: erroresActuales.pulso ? '' : form.pulso,
+    temperatura: erroresActuales.temperatura ? '' : form.temperatura,
+  };
+  const hallazgos = evaluarSignosVitales({ ...evaluables, edad: paciente.edad, sexo: paciente.sexo });
+  const completo = Object.keys(erroresActuales).length === 0;
+  const mencionaAlergia = /alerg/i.test(form.observaciones);
 
   const cambiar = (campo, transformar = (v) => v) => (e) => {
     setForm((f) => ({ ...f, [campo]: transformar(e.target.value) }));
@@ -34,27 +43,25 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
 
   const enviar = (e) => {
     e.preventDefault();
-    const nuevos = validarFormulario(form, REGLAS);
-    setErrores(nuevos);
-    if (Object.keys(nuevos).length) return;
-    onGuardar({
-      presion: form.presion,
-      pulso: `${form.pulso} bpm`,
-      temperatura: `${form.temperatura}°C`,
-      observaciones: form.observaciones.trim() || 'Ninguna',
-    });
+    setErrores(erroresActuales);
+    if (!completo) return;
+    onGuardar(form);
   };
-
-  const mencionaAlergia = /alerg/i.test(form.observaciones);
 
   return (
     <form className={styles.form} onSubmit={enviar} noValidate>
       <div className={styles.patientBox}>
         <p className={styles.patientName}>{paciente.paciente}</p>
         <p className={styles.patientMeta}>
-          {paciente.edad} años · {paciente.sexo} · {paciente.consulta}
+          {tieneEdad ? `${paciente.edad} años` : 'Edad no registrada'} · {paciente.sexo || 'Sexo no registrado'} · {paciente.consulta}
         </p>
       </div>
+
+      {!tieneEdad && (
+        <p className={styles.ageWarning}>
+          Recepción no registró la edad. Se usan los rangos de un adulto.
+        </p>
+      )}
 
       <Field
         label="Presión arterial (mmHg)"
@@ -63,10 +70,27 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
         value={form.presion}
         onChange={cambiar('presion', formatearPresion)}
         error={errores.presion}
+        hint={`Normal: ${referencias.presion}`}
       />
       <FieldRow>
-        <Field label="Pulso (bpm)" inputMode="numeric" placeholder="70" value={form.pulso} onChange={cambiar('pulso', soloNumero)} error={errores.pulso} />
-        <Field label="Temperatura (°C)" inputMode="decimal" placeholder="36.5" value={form.temperatura} onChange={cambiar('temperatura', soloNumero)} error={errores.temperatura} />
+        <Field
+          label="Pulso (lpm)"
+          inputMode="numeric"
+          placeholder="72"
+          value={form.pulso}
+          onChange={cambiar('pulso', soloEntero)}
+          error={errores.pulso}
+          hint={`Normal: ${referencias.pulso}`}
+        />
+        <Field
+          label="Temperatura (°C)"
+          inputMode="decimal"
+          placeholder="36.5"
+          value={form.temperatura}
+          onChange={cambiar('temperatura', soloDecimal)}
+          error={errores.temperatura}
+          hint={`Normal: ${referencias.temperatura}`}
+        />
       </FieldRow>
       <Field
         as="textarea"
@@ -74,11 +98,27 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
         placeholder="Alergias, medicación, notas para la odontóloga…"
         value={form.observaciones}
         onChange={cambiar('observaciones')}
-        hint="Si escribes una alergia, se crea una alerta médica."
+        hint="Si escribes una alergia, también se crea una alerta médica."
       />
-      {mencionaAlergia && (
-        <p className={styles.allergyNotice}>
-          <FontAwesomeIcon icon={faCircleExclamation} /> Se generará una alerta de alergia para este paciente.
+
+      {/* Evaluación en vivo según la edad */}
+      {(hallazgos.length > 0 || mencionaAlergia) && (
+        <div className={styles.evaluation} aria-live="polite">
+          <p className={styles.evaluationTitle}>
+            <FontAwesomeIcon icon={faCircleExclamation} /> Se generarán estas alertas médicas
+          </p>
+          <AlertList
+            compact
+            alertas={[
+              ...hallazgos,
+              ...(mencionaAlergia ? [{ tipo: 'alergia', severidad: 'alta', titulo: 'Alergia', descripcion: form.observaciones }] : []),
+            ]}
+          />
+        </div>
+      )}
+      {completo && hallazgos.length === 0 && !mencionaAlergia && (
+        <p className={styles.allNormal} aria-live="polite">
+          <FontAwesomeIcon icon={faCircleCheck} /> Signos vitales dentro de lo normal para la edad.
         </p>
       )}
 

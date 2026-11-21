@@ -4,10 +4,11 @@ import {
   faCircleExclamation, faClipboardList, faEye, faHeartPulse, faStethoscope, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  Badge, Button, Card, EmptyState, Modal, PageHeader, SearchInput, Table, Tabs, useToast,
+  AlertList, Badge, Button, Card, EmptyState, Modal, PageHeader, SearchInput, Table, Tabs, useToast,
 } from '../../components/ui';
 import { useClinica } from '../../hooks/useClinica';
-import { registrarSignosVitales } from '../../services/clinica';
+import { alertasDeVisita, registrarSignosVitales } from '../../services/clinica';
+import { evaluarSignosVitales } from '../../utils/signosVitales';
 import { formatearFechaHora } from '../../utils/formato';
 import { alertasDeHoy, minutosDesde } from '../dashboard/metricas';
 import SignosVitalesForm from './SignosVitalesForm';
@@ -32,8 +33,14 @@ function EnfermeriaPage() {
   const actual = seleccionado && datos.pacientesEnEspera.find((p) => p.id === seleccionado.id);
 
   const guardar = (signos) => {
+    const totalAlertas = evaluarSignosVitales({ ...signos, edad: actual.edad, sexo: actual.sexo }).length
+      + (/alerg/i.test(signos.observaciones) ? 1 : 0);
     if (registrarSignosVitales(actual, signos)) {
-      toast.success(`${actual.paciente} está listo para odontología.`);
+      if (totalAlertas) {
+        toast.info(`${actual.paciente} pasó a odontología con ${totalAlertas} ${totalAlertas === 1 ? 'alerta médica' : 'alertas médicas'}.`, 6000);
+      } else {
+        toast.success(`${actual.paciente} está listo para odontología.`);
+      }
       setSeleccionado(null);
     } else {
       toast.error('No se pudieron guardar los signos vitales.');
@@ -77,7 +84,14 @@ function EnfermeriaPage() {
     { key: 'hora', header: 'Cita', className: 'strong' },
     { key: 'paciente', header: 'Paciente' },
     { key: 'presion', header: 'Presión', render: (p) => p.signosVitales?.presion },
-    { key: 'estado', header: 'Estado', render: () => <Badge tone="success">Preparado</Badge> },
+    {
+      key: 'alertas',
+      header: 'Alertas',
+      render: (p) => {
+        const n = alertasDeVisita(datos, p.id, p.cedula, p.paciente).length;
+        return n ? <Badge tone="danger">{n} {n === 1 ? 'alerta' : 'alertas'}</Badge> : <Badge tone="success">Sin alertas</Badge>;
+      },
+    },
     {
       key: 'acciones',
       header: '',
@@ -133,12 +147,9 @@ function EnfermeriaPage() {
 
           <Card title="Alertas de hoy" icon={faCircleExclamation} iconTone="danger" padded={false}>
             {alertas.length ? (
-              alertas.map((a) => (
-                <div key={a.id} className={styles.alert}>
-                  <strong>{a.paciente}</strong>
-                  <p>{a.descripcion}</p>
-                </div>
-              ))
+              <div className={styles.alertsBody}>
+                <AlertList alertas={alertas} mostrarPaciente compact />
+              </div>
             ) : (
               <EmptyState compact title="Sin alertas" />
             )}
@@ -172,6 +183,12 @@ function EnfermeriaPage() {
             <div><dt>Temperatura</dt><dd>{detalle.signosVitales?.temperatura}</dd></div>
             <div><dt>Preparado</dt><dd>{formatearFechaHora(detalle.fechaPreparacion)}</dd></div>
             <div className={styles.detailsWide}><dt>Observaciones</dt><dd>{detalle.signosVitales?.observaciones}</dd></div>
+            {alertasDeVisita(datos, detalle.id, detalle.cedula, detalle.paciente).length > 0 && (
+              <div className={styles.detailsWide}>
+                <dt>Alertas médicas</dt>
+                <dd><AlertList compact alertas={alertasDeVisita(datos, detalle.id, detalle.cedula, detalle.paciente)} /></dd>
+              </div>
+            )}
           </dl>
         )}
       </Modal>

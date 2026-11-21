@@ -3,7 +3,7 @@ import {
   faCircleExclamation, faClipboardCheck, faTooth, faUserClock,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  Badge, BarChart, Button, Card, EmptyState, PageHeader, StatCard, StatGrid,
+  AlertList, BarChart, Button, Card, EmptyState, PageHeader, StatCard, StatGrid,
 } from '../../components/ui';
 import { useClinica } from '../../hooks/useClinica';
 import { obtenerPacientesOdontologia } from '../../services/clinica';
@@ -15,7 +15,7 @@ function InicioOdontologia({ sesion }) {
   const agenda = obtenerPacientesOdontologia(datos);
   const siguiente = agenda[0];
   const procedimientos = procedimientosDelMes(datos);
-  const conAlergia = agenda.filter((p) => p.alergias !== 'Ninguna').length;
+  const conAlertas = agenda.filter((p) => p.alertas.length > 0).length;
 
   return (
     <div className={styles.layout}>
@@ -24,7 +24,7 @@ function InicioOdontologia({ sesion }) {
       <StatGrid>
         <StatCard icon={faUserClock} label="Pacientes preparados" value={agenda.length} hint="Ya pasaron por enfermería" />
         <StatCard icon={faClipboardCheck} label="Atendidos hoy" value={atendidosHoy(datos)} tone="success" />
-        <StatCard icon={faCircleExclamation} label="Con alergias en agenda" value={conAlergia} tone="danger" />
+        <StatCard icon={faCircleExclamation} label="Con alertas médicas" value={conAlertas} tone="danger" />
       </StatGrid>
 
       <div className={styles.split}>
@@ -45,7 +45,7 @@ function InicioOdontologia({ sesion }) {
                 <span>{siguiente.tratamiento}</span>
                 {siguiente.signosVitales && <span>PA {siguiente.signosVitales.presion}</span>}
               </div>
-              {siguiente.alergias !== 'Ninguna' && <Badge tone="danger">{siguiente.alergias}</Badge>}
+              {siguiente.alertas.length > 0 && <AlertList compact alertas={siguiente.alertas} />}
               <Button as={Link} to="/consulta" state={{ pacienteId: siguiente.id }}>Iniciar consulta</Button>
             </div>
           ) : (

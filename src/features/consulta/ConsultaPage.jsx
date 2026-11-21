@@ -4,12 +4,12 @@ import {
   faCircleCheck, faFileMedical, faFilePdf, faFloppyDisk, faPrescription, faTooth, faUserClock,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  Badge, Button, Card, EmptyState, Field, FieldRow, PageHeader, Table, Tabs, useConfirm, useToast,
+  AlertList, Badge, Button, Card, EmptyState, Field, FieldRow, PageHeader, Table, Tabs, useConfirm, useToast,
 } from '../../components/ui';
 import { useClinica } from '../../hooks/useClinica';
 import {
   finalizarConsulta, guardarOdontograma, obtenerHistorialOdontologico, obtenerOdontograma,
-  obtenerPacientesOdontologia, registrarDiagnostico,
+  obtenerPacientesOdontologia, registrarDiagnostico, registrarReceta,
 } from '../../services/clinica';
 import { formatearFecha } from '../../utils/formato';
 import { requerido, validarFormulario } from '../../utils/validaciones';
@@ -86,7 +86,7 @@ function ConsultaPage() {
       confirmText: 'Finalizar consulta',
     });
     if (ok && finalizarConsulta(paciente)) {
-      toast.success(`Consulta de ${paciente.nombre} finalizada.`);
+      toast.success(`Consulta de ${paciente.nombre} finalizada. Sus documentos siguen disponibles en la ficha del paciente.`, 6000);
       setPacienteId(null);
       setPestana('diagnostico');
     }
@@ -148,6 +148,12 @@ function ConsultaPage() {
                 <dd>{paciente.alergias === 'Ninguna' ? 'Ninguna' : <Badge tone="danger">{paciente.alergias}</Badge>}</dd>
               </div>
             </dl>
+            {paciente.alertas.length > 0 && (
+              <div className={styles.alerts}>
+                <p className={styles.alertsTitle}>Alertas médicas de enfermería</p>
+                <AlertList compact alertas={paciente.alertas} />
+              </div>
+            )}
           </Card>
 
           <Card padded={false}>
@@ -284,7 +290,9 @@ function ConsultaPage() {
                     <strong>{p.nombre}</strong>
                     <span>{p.tratamiento}</span>
                   </span>
-                  {p.alergias !== 'Ninguna' && <Badge tone="danger">Alergia</Badge>}
+                  {p.alertas.length > 0 && (
+                    <Badge tone="danger">{p.alertas.length} {p.alertas.length === 1 ? 'alerta' : 'alertas'}</Badge>
+                  )}
                 </button>
               </li>
             ))}
@@ -299,7 +307,9 @@ function ConsultaPage() {
           onClose={() => setReceta(false)}
           onGenerar={async (datosReceta) => {
             try {
-              await generarRecetaPDF(paciente, datosReceta);
+              // Se guarda para poder volver a descargarla desde la ficha del paciente
+              const guardada = registrarReceta(paciente, datosReceta);
+              await generarRecetaPDF(paciente, guardada || datosReceta);
               toast.success('Receta descargada.');
               setReceta(false);
             } catch {
