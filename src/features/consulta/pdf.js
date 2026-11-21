@@ -355,9 +355,9 @@ function odontogramaPDF(doc, estados, y) {
 
 const COLUMNAS = [
   { titulo: 'Fecha', ancho: 24 },
-  { titulo: 'Pieza', ancho: 16 },
+  { titulo: 'Pieza', ancho: 22 },
   { titulo: 'Procedimiento', ancho: 30 },
-  { titulo: 'Diagnóstico y notas', ancho: 78 },
+  { titulo: 'Diagnóstico y notas', ancho: 72 },
   { titulo: 'Estado', ancho: 26 },
 ];
 
@@ -438,10 +438,13 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
   }
 
   registros.forEach((h, i) => {
+    fuente(doc, 9, 'bold');
+    // "11, 26, 36" se reparte en varias líneas si no cabe en la columna
+    const piezas = doc.splitTextToSize(String(h.diente).replace(/\s*,\s*/g, ', '), COLUMNAS[1].ancho - 5);
     fuente(doc, 9);
     const diagnostico = doc.splitTextToSize(h.diagnostico || '-', COLUMNAS[3].ancho - 6);
     const notas = h.notas ? doc.splitTextToSize(h.notas, COLUMNAS[3].ancho - 6) : [];
-    const alto = Math.max(10, 6 + diagnostico.length * 4.2 + notas.length * 3.8);
+    const alto = Math.max(10, 6 + diagnostico.length * 4.2 + notas.length * 3.8, 6 + piezas.length * 4.2);
 
     if (y + alto > LIMITE_INFERIOR) {
       doc.addPage();
@@ -462,7 +465,7 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
     doc.text(formatearFecha(h.fechaRegistro || h.fecha), x + 3, yTexto);
     x += COLUMNAS[0].ancho;
     fuente(doc, 9, 'bold');
-    doc.text(String(h.diente), x + 3, yTexto);
+    doc.text(piezas, x + 3, yTexto);
     x += COLUMNAS[1].ancho;
     fuente(doc, 9);
     doc.text(h.procedimiento, x + 3, yTexto);
