@@ -1,0 +1,106 @@
+/* ==================== VARIABLES DE DISEÑO ====================
+   Todo color, espacio, radio y sombra de la app sale de aquí.
+   Cada rol solo cambia su color de acento (ver [data-rol] abajo). */
+
+:root {
+  /* Tipografía (fuentes del sistema: no se descarga nada) */
+  --font-sans: 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  /* Neutros */
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+
+  --color-bg: #f4f6fa;
+  --color-surface: #ffffff;
+  --color-border: var(--gray-200);
+  --color-text: var(--gray-900);
+  --color-text-muted: var(--gray-500);
+
+  /* Estados */
+  --color-success: #15803d;
+  --color-success-bg: #dcfce7;
+  --color-warning: #a16207;
+  --color-warning-bg: #fef9c3;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-bg: #dbeafe;
+  --color-purple: #7e22ce;
+  --color-purple-bg: #f3e8ff;
+
+  /* Marca (rojo Uleam) */
+  --color-brand: #c8102e;
+
+  /* Acento por defecto (se sobrescribe por rol) */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-text: #1e40af;
+
+  /* Espaciado (escala de 4 px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Bordes y sombras */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 16px 40px rgb(15 23 42 / 0.18);
+
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  --sidebar-width: 248px;
+  --topbar-height: 64px;
+}
+
+/* ===== Color de acento por rol ===== */
+[data-rol='Recepcionista'] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-text: #1e40af;
+}
+
+[data-rol='Enfermera'] {
+  --accent: #16a34a;
+  --accent-hover: #15803d;
+  --accent-soft: #f0fdf4;
+  --accent-text: #166534;
+}
+
+[data-rol='Odontologa'] {
+  --accent: #9333ea;
+  --accent-hover: #7e22ce;
+  --accent-soft: #faf5ff;
+  --accent-text: #6b21a8;
+}
+
+[data-rol='Administrador'] {
+  --accent: #c8102e;
+  --accent-hover: #a50d26;
+  --accent-soft: #fff1f2;
+  --accent-text: #9f1239;
+}
