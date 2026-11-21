@@ -1,58 +1,126 @@
-// ==================== SERVICIO DE AUTENTICACIÓN ====================
-// Único lugar donde vive la lógica de login/sesión.
+// ==================== SERVICIO DE AUTENTICACIÓN Y USUARIOS ====================
+// Único lugar donde vive la lógica de login, sesión y usuarios.
 //
-// ⚠️ MODO DEMO: los usuarios están aquí solo para pruebas locales.
-// Todo lo que está en el frontend es visible para cualquiera en el navegador,
-// así que en producción esta función debe llamar a un backend real
-// (por ejemplo Supabase Auth) que valide credenciales y devuelva el rol.
-// Al migrar, solo hay que reemplazar `iniciarSesion`; el resto de la app no cambia.
+// ⚠️ MODO DEMO: los usuarios se guardan en localStorage y las claves en texto
+// plano. Sirve para probar la app sin backend. En producción:
+//   - iniciarSesion() llamará a POST /auth/login y el servidor devolverá
+//     un token con el rol del usuario.
+//   - listarUsuarios(), crearUsuario() y cambiarEstadoUsuario() llamarán
+//     a la API de usuarios (solo para administradores).
+// El resto de la app no tiene que cambiar.
+
+import { generarId } from './clinica';
 
 const SESION_KEY = 'sesion';
+const USUARIOS_KEY = 'usuariosDemo';
+export const EVENTO_USUARIOS = 'usuariosUpdate';
 
 export const ROLES = Object.freeze({
+  ADMIN: 'Administrador',
   RECEPCIONISTA: 'Recepcionista',
   ENFERMERA: 'Enfermera',
   ODONTOLOGA: 'Odontologa',
 });
 
-export const RUTA_POR_ROL = Object.freeze({
-  [ROLES.RECEPCIONISTA]: '/recepcionista-dashboard',
-  [ROLES.ENFERMERA]: '/enfermera-dashboard',
-  [ROLES.ODONTOLOGA]: '/odontologa-dashboard',
+// Texto que se muestra en pantalla (los valores de ROLES se guardan sin tilde)
+export const NOMBRE_ROL = Object.freeze({
+  [ROLES.ADMIN]: 'Administración',
+  [ROLES.RECEPCIONISTA]: 'Recepción',
+  [ROLES.ENFERMERA]: 'Enfermería',
+  [ROLES.ODONTOLOGA]: 'Odontología',
 });
 
-export const RUTA_LOGIN_POR_ROL = Object.freeze({
-  [ROLES.RECEPCIONISTA]: '/login-recepcionista',
-  [ROLES.ENFERMERA]: '/login-enfermera',
-  [ROLES.ODONTOLOGA]: '/login-odontologa',
-});
+const USUARIOS_INICIALES = [
+  { nombre: 'Administrador', email: 'admin@live.uleam.edu.ec', rol: ROLES.ADMIN },
+  { nombre: 'Recepcionista', email: 'recepcionista@live.uleam.edu.ec', rol: ROLES.RECEPCIONISTA },
+  { nombre: 'Enfermera', email: 'enfermera@live.uleam.edu.ec', rol: ROLES.ENFERMERA },
+  { nombre: 'Odontóloga', email: 'odontologa@live.uleam.edu.ec', rol: ROLES.ODONTOLOGA },
+].map((u) => ({ ...u, id: `usr_${u.rol}`, pass: '1234', activo: true, creado: null }));
 
-// Usuarios de demostración (eliminar al conectar el backend).
-// `nombre` queda vacío porque el toast de bienvenida ya muestra el rol.
-const USUARIOS_DEMO = {
-  'recepcionista@live.uleam.edu.ec': { pass: '1234', rol: ROLES.RECEPCIONISTA, nombre: '' },
-  'enfermera@live.uleam.edu.ec': { pass: '1234', rol: ROLES.ENFERMERA, nombre: '' },
-  'odontologa@live.uleam.edu.ec': { pass: '1234', rol: ROLES.ODONTOLOGA, nombre: '' },
+// ==================== USUARIOS ====================
+
+const leerUsuarios = () => {
+  try {
+    const guardados = JSON.parse(localStorage.getItem(USUARIOS_KEY));
+    if (Array.isArray(guardados) && guardados.length) return guardados;
+  } catch {
+    // datos corruptos: se vuelve a los iniciales
+  }
+  return structuredClone(USUARIOS_INICIALES);
 };
 
-/**
- * Valida credenciales para un rol concreto.
- * Devuelve la sesión creada o lanza un Error con un mensaje para el usuario.
- * Es async para que el reemplazo por una llamada a la API no cambie a quien la usa.
- */
-export async function iniciarSesion(email, password, rolRequerido) {
-  const correo = email.trim().toLowerCase();
-  const usuario = USUARIOS_DEMO[correo];
+const guardarUsuarios = (usuarios) => {
+  localStorage.setItem(USUARIOS_KEY, JSON.stringify(usuarios));
+  window.dispatchEvent(new CustomEvent(EVENTO_USUARIOS));
+};
 
-  if (!usuario || usuario.pass !== password || usuario.rol !== rolRequerido) {
-    throw new Error('Credenciales incorrectas para este acceso.');
+// La clave nunca sale de este archivo
+const sinClave = (usuario) => {
+  const copia = { ...usuario };
+  delete copia.pass;
+  return copia;
+};
+
+export async function listarUsuarios() {
+  return leerUsuarios().map(sinClave);
+}
+
+export async function crearUsuario({ nombre, email, rol, pass }) {
+  const usuarios = leerUsuarios();
+  const correo = email.trim().toLowerCase();
+  if (usuarios.some((u) => u.email === correo)) {
+    throw new Error('Ya existe un usuario con ese correo.');
+  }
+  const nuevo = {
+    id: generarId('usr'),
+    nombre: nombre.trim(),
+    email: correo,
+    rol,
+    pass,
+    activo: true,
+    creado: new Date().toISOString(),
+  };
+  guardarUsuarios([...usuarios, nuevo]);
+  return sinClave(nuevo);
+}
+
+export async function cambiarEstadoUsuario(id, activo) {
+  const usuarios = leerUsuarios();
+  const usuario = usuarios.find((u) => u.id === id);
+  if (!usuario) throw new Error('Usuario no encontrado.');
+  const adminsActivos = usuarios.filter((u) => u.rol === ROLES.ADMIN && u.activo).length;
+  if (usuario.rol === ROLES.ADMIN && !activo && adminsActivos === 1) {
+    throw new Error('Debe quedar al menos un administrador activo.');
+  }
+  usuario.activo = activo;
+  guardarUsuarios(usuarios);
+}
+
+// ==================== SESIÓN ====================
+
+/**
+ * Valida las credenciales. El rol lo decide el sistema, no el usuario.
+ * Devuelve la sesión creada o lanza un Error con un mensaje para mostrar.
+ */
+export async function iniciarSesion(email, password) {
+  const correo = email.trim().toLowerCase();
+  const usuario = leerUsuarios().find((u) => u.email === correo);
+
+  if (!usuario || usuario.pass !== password) {
+    throw new Error('Correo o contraseña incorrectos.');
+  }
+  if (!usuario.activo) {
+    throw new Error('Tu usuario está desactivado. Contacta al administrador.');
   }
 
-  const sesion = { email: correo, rol: usuario.rol, nombre: usuario.nombre, inicio: Date.now() };
+  const sesion = {
+    id: usuario.id,
+    email: usuario.email,
+    nombre: usuario.nombre,
+    rol: usuario.rol,
+    inicio: new Date().toISOString(),
+  };
   sessionStorage.setItem(SESION_KEY, JSON.stringify(sesion));
-  // Claves que ya usan los dashboards para el mensaje de bienvenida
-  sessionStorage.setItem('rol', usuario.rol);
-  sessionStorage.setItem('nombre', usuario.nombre);
   sessionStorage.setItem('mostrarBienvenida', 'true');
   return sesion;
 }
@@ -60,7 +128,7 @@ export async function iniciarSesion(email, password, rolRequerido) {
 export function obtenerSesion() {
   try {
     const sesion = JSON.parse(sessionStorage.getItem(SESION_KEY));
-    return sesion && sesion.rol ? sesion : null;
+    return sesion?.rol ? sesion : null;
   } catch {
     return null;
   }

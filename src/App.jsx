@@ -1,63 +1,59 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import AppLayout from './components/layout/AppLayout';
+import { RUTAS } from './components/layout/navegacion';
 import ProtectedRoute from './components/ProtectedRoute';
-import { ROLES } from './services/authService';
+import { ConfirmProvider, ToastProvider } from './components/ui';
+import LoginPage from './features/auth/LoginPage';
+import DashboardPage from './features/dashboard/DashboardPage';
+import CitasPage from './features/citas/CitasPage';
+import EnfermeriaPage from './features/enfermeria/EnfermeriaPage';
+import ConsultaPage from './features/consulta/ConsultaPage';
+import PacientesPage from './features/pacientes/PacientesPage';
+import FichaPacientePage from './features/pacientes/FichaPacientePage';
+import UsuariosPage from './features/usuarios/UsuariosPage';
+import { obtenerSesion } from './services/authService';
 
-// RECEPCIONISTA
-import LoginRecepcionista from './pages/LoginRecepcionista';
-import RecepcionistaDashboard from './pages/RecepcionistaDashboard';
-
-// ENFERMERÍA
-import LoginEnfermera from './pages/LoginEnfermera';
-import PanelEnfermera from './pages/EnfermeraDashboard';
-
-// ODONTÓLOGA
-import LoginOdontologa from './pages/LoginOdontologa';
-import OdontologaDashboard from './pages/OdontologaDashboard';
+// Ruta protegida por los roles definidos en navegacion.js
+const conRoles = (ruta, elemento) => (
+  <Route element={<ProtectedRoute roles={ruta.roles} />}>
+    <Route path={ruta.path} element={elemento} />
+  </Route>
+);
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
+    <ToastProvider>
+      <ConfirmProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
 
-        {/* Recepcionista */}
-        <Route path="/login-recepcionista" element={<LoginRecepcionista />} />
-        <Route
-          path="/recepcionista-dashboard"
-          element={
-            <ProtectedRoute rol={ROLES.RECEPCIONISTA}>
-              <RecepcionistaDashboard />
-            </ProtectedRoute>
-          }
-        />
+            {/* Todo lo de adentro exige sesión y comparte el layout */}
+            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              {conRoles(RUTAS.inicio, <DashboardPage />)}
+              {conRoles(RUTAS.citas, <CitasPage />)}
+              {conRoles(RUTAS.enfermeria, <EnfermeriaPage />)}
+              {conRoles(RUTAS.consulta, <ConsultaPage />)}
+              {conRoles(RUTAS.pacientes, <PacientesPage />)}
+              <Route element={<ProtectedRoute roles={RUTAS.pacientes.roles} />}>
+                <Route path="/pacientes/:cedula" element={<FichaPacientePage />} />
+              </Route>
+              {conRoles(RUTAS.usuarios, <UsuariosPage />)}
+            </Route>
 
-        {/* Enfermera */}
-        <Route path="/login-enfermera" element={<LoginEnfermera />} />
-        <Route
-          path="/enfermera-dashboard"
-          element={
-            <ProtectedRoute rol={ROLES.ENFERMERA}>
-              <PanelEnfermera />
-            </ProtectedRoute>
-          }
-        />
+            {/* Rutas de la versión anterior, para no romper enlaces guardados */}
+            {['/login-recepcionista', '/login-enfermera', '/login-odontologa'].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/login" replace />} />
+            ))}
+            {['/recepcionista-dashboard', '/enfermera-dashboard', '/odontologa-dashboard'].map((path) => (
+              <Route key={path} path={path} element={<Navigate to="/inicio" replace />} />
+            ))}
 
-        {/* Odontóloga */}
-        <Route path="/login-odontologa" element={<LoginOdontologa />} />
-        <Route
-          path="/odontologa-dashboard"
-          element={
-            <ProtectedRoute rol={ROLES.ODONTOLOGA}>
-              <OdontologaDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Cualquier otra ruta vuelve al inicio */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+            <Route path="*" element={<Navigate to={obtenerSesion() ? '/inicio' : '/login'} replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }
 

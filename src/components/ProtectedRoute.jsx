@@ -1,26 +1,26 @@
-import { Navigate } from 'react-router-dom';
-import { obtenerSesion, RUTA_LOGIN_POR_ROL, RUTA_POR_ROL } from '../services/authService';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { obtenerSesion } from '../services/authService';
 
 /**
- * Protege una ruta por rol.
- * - Sin sesión → al login de ese rol.
- * - Con sesión de otro rol → a su propio dashboard.
+ * Protege un grupo de rutas.
+ * - Sin sesión → al login (y luego vuelve a la página pedida).
+ * - Con un rol que no está en `roles` → a su inicio.
  *
- * Nota: esto es solo la capa visual. La protección real de los datos
- * debe hacerla el backend (reglas por rol en la base de datos / API).
+ * Es solo la capa visual: la protección real de los datos la hace el backend.
  */
-function ProtectedRoute({ rol, children }) {
+function ProtectedRoute({ roles, children }) {
   const sesion = obtenerSesion();
+  const location = useLocation();
 
   if (!sesion) {
-    return <Navigate to={RUTA_LOGIN_POR_ROL[rol] || '/'} replace />;
+    return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
   }
 
-  if (sesion.rol !== rol) {
-    return <Navigate to={RUTA_POR_ROL[sesion.rol] || '/'} replace />;
+  if (roles && !roles.includes(sesion.rol)) {
+    return <Navigate to="/inicio" replace />;
   }
 
-  return children;
+  return children || <Outlet />;
 }
 
 export default ProtectedRoute;
