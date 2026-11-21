@@ -70,11 +70,18 @@ src/
 │   ├── consulta/           diagnóstico, odontograma, receta y PDFs
 │   ├── pacientes/          listado y ficha del paciente
 │   └── usuarios/           gestión de usuarios (administración)
-├── hooks/useClinica.js     datos de la clínica, actualizados en vivo
+├── hooks/                  useRecurso (carga de la API con actualización periódica) y useDiferido
 ├── services/
-│   ├── clinica.js          capa de datos (hoy localStorage, mañana la API)
-│   └── authService.js      login, sesión, roles y usuarios
-└── utils/                  validaciones y formatos de fecha compartidos
+│   ├── api.js              fetch a /api con la cookie de sesión y errores en español
+│   ├── authService.js      login, sesión, roles y usuarios
+│   ├── recepcionApi.js     pacientes, citas y ficha
+│   ├── enfermeriaApi.js    sala de espera y signos vitales
+│   ├── consultaApi.js      agenda, diagnósticos, odontograma, recetas
+│   └── clinica.js          constantes compartidas (estados de cita, fechas)
+└── utils/                  validaciones y formatos de fecha
+shared/                     reglas que usan el frontend y el backend:
+├── signosVitales.js        rangos por edad y alertas
+└── alergias.js             aviso de alergia al recetar
 ```
 
 ### Diseño
@@ -85,8 +92,8 @@ src/
 
 ## Estado actual
 
-- **En el servidor (PostgreSQL):** usuarios y sesión, pacientes, citas, ficha del paciente, sala de espera, signos vitales y alertas médicas, y los paneles de recepción, enfermería y administración.
-- **Todavía en `localStorage`:** la consulta odontológica (diagnósticos, odontograma y recetas). Pasa a la API en la parte 3.3; mientras tanto, los pacientes que prepara enfermería no aparecen en la pantalla de odontología.
+- **Todo en el servidor (PostgreSQL):** usuarios y sesión, pacientes, citas, sala de espera, signos vitales, alertas, consulta, diagnósticos, odontograma y recetas. El flujo recepción → enfermería → odontología funciona entre computadoras distintas.
+- La app ya no guarda datos clínicos en el navegador. Al abrir esta versión se borran los datos que dejaron en `localStorage` las versiones anteriores.
 
 ## Backend
 
@@ -97,7 +104,7 @@ Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
-3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales (hecho), 3.3 consulta, odontograma y recetas
+3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales (hecho), 3.3 consulta, odontograma y recetas (hecho)
 4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
 5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
 6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript

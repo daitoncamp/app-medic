@@ -146,6 +146,32 @@ export const TEXTO_ANTECEDENTE = {
   OTRO: 'Otro',
 };
 
+/** Diagnóstico de la API → fila del historial (pantallas y PDF) */
+export const adaptarDiagnostico = (dx) => ({
+  id: dx.id,
+  citaId: dx.citaId,
+  piezas: dx.piezas,
+  diente: dx.piezas.join(', '),
+  procedimiento: dx.procedimiento,
+  diagnostico: dx.descripcion,
+  notas: dx.notas,
+  estado: ESTADO_PROCEDIMIENTO[dx.estado] || dx.estado,
+  fechaRegistro: dx.creadoEn,
+  odontologo: dx.odontologo,
+});
+
+/** Receta de la API → forma que usan la ficha y el PDF (con el primer medicamento a mano) */
+export const adaptarReceta = (r, citaId = r.citaId) => ({
+  id: r.id,
+  numero: r.numero,
+  citaId,
+  ...(r.medicamentos[0] || {}),
+  medicamentos: r.medicamentos,
+  indicaciones: r.indicaciones,
+  odontologo: r.odontologo,
+  fechaRegistro: r.creadoEn,
+});
+
 const formatoSignos = (s) => s && ({
   presion: `${s.presionSistolica}/${s.presionDiastolica}`,
   pulso: `${s.pulso} lpm`,
@@ -177,26 +203,10 @@ export async function obtenerFicha(cedula) {
 
   const citas = d.citas.map((c) => ({ ...adaptarCita({ ...c, paciente: d.paciente }), raw: c }));
 
-  const historial = d.citas.flatMap((c) => c.diagnosticos.map((dx) => ({
-    id: dx.id,
-    pacienteId: c.id,
-    diente: dx.piezas.join(', '),
-    procedimiento: dx.procedimiento,
-    diagnostico: dx.descripcion,
-    notas: dx.notas,
-    estado: ESTADO_PROCEDIMIENTO[dx.estado] || dx.estado,
-    fechaRegistro: dx.creadoEn,
-  }))).sort((a, b) => String(a.fechaRegistro).localeCompare(String(b.fechaRegistro)));
+  const historial = d.citas.flatMap((c) => c.diagnosticos.map((dx) => adaptarDiagnostico({ ...dx, citaId: c.id })))
+    .sort((a, b) => String(a.fechaRegistro).localeCompare(String(b.fechaRegistro)));
 
-  const recetas = d.citas.flatMap((c) => c.recetas.filter((r) => !r.anuladaEn).map((r) => ({
-    id: r.id,
-    numero: r.numero,
-    citaId: c.id,
-    ...(r.medicamentos[0] || {}),
-    medicamentos: r.medicamentos,
-    indicaciones: r.indicaciones,
-    fechaRegistro: r.creadoEn,
-  })));
+  const recetas = d.citas.flatMap((c) => c.recetas.filter((r) => !r.anuladaEn).map((r) => adaptarReceta(r, c.id)));
 
   const conSignos = d.citas.find((c) => c.signosVitales);
   const ultimosSignos = conSignos && {

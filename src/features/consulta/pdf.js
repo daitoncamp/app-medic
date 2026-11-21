@@ -7,7 +7,8 @@ import { fechaLocalISO } from '../../services/clinica';
 import { aFecha, formatearFecha, formatearFechaHora } from '../../utils/formato';
 import { DIENTES, ESTADOS_DIENTE, estadoDiente, tipoDiente } from './dientes';
 
-const ODONTOLOGA = 'Dra. María Fernanda López';
+// Nombre por defecto si el documento no trae quién lo emitió
+const ODONTOLOGA = 'Odontóloga tratante';
 
 // ===== Medidas de la hoja =====
 const ANCHO = 210;
@@ -183,13 +184,13 @@ function alertasPDF(doc, alertas, y) {
 }
 
 /** Línea de firma de la odontóloga */
-function firma(doc, y) {
+function firma(doc, y, nombre = ODONTOLOGA) {
   const x = ANCHO - MARGEN - 70;
   trazo(doc, C.suave);
   doc.setLineWidth(0.3);
   doc.line(x, y, ANCHO - MARGEN, y);
   fuente(doc, 10, 'bold');
-  doc.text(ODONTOLOGA, x + 35, y + 5, { align: 'center' });
+  doc.text(nombre, x + 35, y + 5, { align: 'center' });
   fuente(doc, 8.5, 'normal', C.suave);
   doc.text('Odontóloga tratante', x + 35, y + 9.5, { align: 'center' });
   fuente(doc, 8, 'normal', C.tenue);
@@ -243,7 +244,7 @@ export async function generarRecetaPDF(paciente, receta) {
   ]), y);
 
   if (tieneAlergia(paciente)) {
-    y = aviso(doc, `Atención: paciente con ${paciente.alergias.toLowerCase()}. Verificar antes de dispensar.`, y);
+    y = aviso(doc, `Atención: alergias registradas: ${paciente.alergias}. Verificar antes de dispensar.`, y);
   }
 
   // Símbolo de prescripción
@@ -251,34 +252,52 @@ export async function generarRecetaPDF(paciente, receta) {
   doc.text('Rp.', MARGEN, y + 8);
   y += 15;
 
-  // Tarjeta del medicamento
-  const altoTarjeta = 34;
-  trazo(doc, C.borde);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(MARGEN, y, CONTENIDO, altoTarjeta, 2.5, 2.5, 'S');
-  relleno(doc, C.marca);
-  doc.rect(MARGEN, y + 3, 1.4, altoTarjeta - 6, 'F');
-
-  fuente(doc, 15, 'bold');
-  doc.text(receta.medicamento, MARGEN + 7, y + 10);
-
-  const columnas = [['Dosis', receta.dosis], ['Frecuencia', receta.frecuencia], ['Duración', receta.duracion]];
+  // Una tarjeta por medicamento (las recetas antiguas traen uno solo, sin lista)
+  const medicamentos = receta.medicamentos?.length ? receta.medicamentos : [receta];
+  // Con varios medicamentos las tarjetas son más compactas para que quepan en una hoja
+  const compacta = medicamentos.length > 1;
+  const altoTarjeta = compacta ? 25 : 32;
   const anchoCol = (CONTENIDO - 14) / 3;
-  columnas.forEach(([etiqueta, valor], i) => {
-    const x = MARGEN + 7 + i * anchoCol;
-    relleno(doc, C.fondo);
-    doc.roundedRect(x, y + 15, anchoCol - 4, 14, 1.5, 1.5, 'F');
-    fuente(doc, 7, 'bold', C.tenue);
-    doc.text(etiqueta.toUpperCase(), x + 3.5, y + 20);
-    fuente(doc, 10.5, 'bold');
-    doc.text(doc.splitTextToSize(valor, anchoCol - 10)[0], x + 3.5, y + 25.5);
-  });
-  y += altoTarjeta + 10;
+  medicamentos.forEach((m, indice) => {
+    if (y + altoTarjeta > ALTO - 40) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    trazo(doc, C.borde);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(MARGEN, y, CONTENIDO, altoTarjeta, 2.5, 2.5, 'S');
+    relleno(doc, C.marca);
+    doc.rect(MARGEN, y + 3, 1.4, altoTarjeta - 6, 'F');
 
-  // Indicaciones
-  y = seccion(doc, 'Indicaciones', y);
+    fuente(doc, compacta ? 12.5 : 14, 'bold');
+    const titulo = compacta ? `${indice + 1}. ${m.medicamento}` : m.medicamento;
+    doc.text(doc.splitTextToSize(titulo, CONTENIDO - 14)[0], MARGEN + 7, y + (compacta ? 8 : 9.5));
+
+    const cajaY = y + (compacta ? 11.5 : 14);
+    const cajaAlto = compacta ? 10.5 : 13.5;
+    [['Dosis', m.dosis], ['Frecuencia', m.frecuencia], ['Duración', m.duracion]].forEach(([etiqueta, valor], i) => {
+      const x = MARGEN + 7 + i * anchoCol;
+      relleno(doc, C.fondo);
+      doc.roundedRect(x, cajaY, anchoCol - 4, cajaAlto, 1.5, 1.5, 'F');
+      fuente(doc, compacta ? 6.5 : 7, 'bold', C.tenue);
+      doc.text(etiqueta.toUpperCase(), x + 3.5, cajaY + (compacta ? 4 : 5));
+      fuente(doc, compacta ? 9.5 : 10.5, 'bold');
+      doc.text(doc.splitTextToSize(valor, anchoCol - 10)[0], x + 3.5, cajaY + (compacta ? 8.5 : 10.5));
+    });
+    y += altoTarjeta + (compacta ? 4 : 5);
+  });
+  y += 5;
+
+  // Indicaciones, recomendaciones y firma deben caber antes del pie de página
   fuente(doc, 10.5, 'normal', receta.indicaciones ? C.texto : C.tenue);
   const indicaciones = doc.splitTextToSize(receta.indicaciones || 'Sin indicaciones adicionales.', CONTENIDO);
+  // secciones (10) + texto (líneas × 5 + 8) + recomendaciones (11) + firma (28) antes del pie (ALTO - 18)
+  if (y + 57 + indicaciones.length * 5 > ALTO - 18) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = seccion(doc, 'Indicaciones', y);
+  fuente(doc, 10.5, 'normal', receta.indicaciones ? C.texto : C.tenue);
   doc.text(indicaciones, MARGEN, y + 1);
   y += indicaciones.length * 5 + 8;
 
@@ -295,7 +314,7 @@ export async function generarRecetaPDF(paciente, receta) {
     y += 5.5;
   });
 
-  firma(doc, 250);
+  firma(doc, Math.max(y + 18, 250), receta.odontologo);
   piesDePagina(doc);
   doc.save(`Receta_${nombreArchivo(paciente.nombre)}.pdf`);
 }
@@ -415,7 +434,7 @@ function cabeceraTabla(doc, y) {
  * Historial clínico del paciente. Si se pasa `fecha` (YYYY-MM-DD), solo
  * incluye los procedimientos de ese día.
  */
-export async function generarHistorialPDF(paciente, historial, { fecha = null, odontograma = {} } = {}) {
+export async function generarHistorialPDF(paciente, historial, { fecha = null, odontograma = {}, firmante } = {}) {
   const registros = fecha
     ? historial.filter((h) => {
       const f = aFecha(h.fechaRegistro || h.fecha);
@@ -539,7 +558,7 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
     doc.addPage();
     y = 20;
   }
-  firma(doc, Math.max(y + 22, 245));
+  firma(doc, Math.max(y + 22, 245), firmante);
 
   piesDePagina(doc);
   doc.save(`Historial_${nombreArchivo(paciente.nombre)}${fecha ? `_${fecha}` : ''}.pdf`);

@@ -114,7 +114,7 @@ function FichaPacientePage() {
         </Card>
 
         <div className={styles.sideCol}>
-          <DocumentosPaciente ficha={ficha} />
+          <DocumentosPaciente ficha={ficha} onCambio={recargar} />
 
           {antecedentes.length > 0 && (
             <Card title="Antecedentes médicos" icon={faNotesMedical}>
