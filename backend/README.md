@@ -145,12 +145,22 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `DELETE /api/consultas/:citaId/odontograma/:pieza` | Odontología | Quita la marca de esa pieza hecha en esta consulta |
 | `DELETE /api/consultas/:citaId/odontograma` | Odontología | Quita todas las marcas de esta consulta |
 | `POST /api/consultas/:citaId/recetas` | Odontología | `{ medicamentos: [{ medicamento, dosis, frecuencia, duracion }], indicaciones, confirmarAlergias }`. Número RX-AAAAMMDD-0001. También después de finalizar |
+| `POST /api/consultas/:citaId/consentimientos` | Odontología | `{ procedimiento, esRepresentante, firmante?: { nombre, cedula, parentesco }, aceptado: true }` |
 | `POST /api/consultas/:citaId/finalizar` | Odontología | La cita queda atendida |
 
 ### Odontograma
 
 Cada visita guarda sus propias marcas. Lo que se muestra es la marca más reciente de cada pieza,
 así que quitar una marca de hoy no borra la historia: la pieza vuelve a lo que tenía en la visita anterior.
+
+### Consentimiento informado
+
+Extracción, endodoncia, resina, corona y ortodoncia requieren consentimiento antes de registrarse
+como realizados (completado o en proceso); como pendientes (planificados) no lo necesitan.
+El texto sale de [`shared/consentimientos.js`](../shared/consentimientos.js) y se guarda tal cual se mostró.
+Si el paciente es menor de 18 años, la API exige que firme un representante. Se descarga un PDF para las firmas a mano,
+con un espacio de revocatoria. Los textos siguen las pautas del Acuerdo Ministerial 5316 del MSP,
+pero la clínica debe revisarlos y validarlos antes de usarlos con pacientes.
 
 ### Recetas y alergias
 

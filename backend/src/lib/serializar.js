@@ -53,3 +53,15 @@ export const recetaPublica = (r) => ({
     medicamento, dosis, frecuencia, duracion,
   })),
 });
+
+export const consentimientoPublico = (c) => ({
+  id: c.id,
+  citaId: c.citaId,
+  procedimiento: c.procedimiento,
+  textoAceptado: c.textoAceptado,
+  firmanteNombre: c.firmanteNombre,
+  firmanteCedula: c.firmanteCedula,
+  esRepresentante: c.esRepresentante,
+  aceptadoEn: c.aceptadoEn,
+  odontologo: c.odontologo?.nombre,
+});

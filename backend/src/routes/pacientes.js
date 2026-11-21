@@ -11,7 +11,7 @@ import { conflicto, noEncontrado } from '../lib/errores.js';
 import { fechaLocal } from '../lib/fechas.js';
 import { esquemaPaciente, TIPOS_ANTECEDENTE } from '../lib/esquemas.js';
 import { prisma } from '../lib/prisma.js';
-import { citaPublica, pacienteResumen, recetaPublica } from '../lib/serializar.js';
+import { citaPublica, consentimientoPublico, pacienteResumen, recetaPublica } from '../lib/serializar.js';
 import { validar } from '../lib/validar.js';
 import { requiereRol } from '../middlewares/auth.js';
 
@@ -120,6 +120,7 @@ rutasPacientes.get('/:cedula', async (req, res) => {
             include: { medicamentos: { orderBy: { orden: 'asc' } }, odontologo: { select: { nombre: true } } },
             orderBy: { creadoEn: 'desc' },
           },
+          consentimientos: { include: { odontologo: { select: { nombre: true } } }, orderBy: { aceptadoEn: 'asc' } },
         },
       },
     },
@@ -158,6 +159,7 @@ rutasPacientes.get('/:cedula', async (req, res) => {
         notas: d.notas, estado: d.estado, creadoEn: d.creadoEn,
       })),
       recetas: c.recetas.map(recetaPublica),
+      consentimientos: c.consentimientos.map(consentimientoPublico),
     })),
   });
 });

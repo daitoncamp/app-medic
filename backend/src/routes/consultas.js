@@ -6,6 +6,7 @@
 //   DELETE /api/consultas/:citaId/odontograma/:pieza     quita la marca hecha en esta consulta
 //   DELETE /api/consultas/:citaId/odontograma            quita todas las marcas de esta consulta
 //   POST   /api/consultas/:citaId/recetas                { medicamentos: [...], indicaciones }
+//   POST   /api/consultas/:citaId/consentimientos        { procedimiento, esRepresentante, firmante }
 //   POST   /api/consultas/:citaId/finalizar              la cita queda atendida
 //
 // El odontograma guarda las marcas de cada visita. Lo que se ve es la marca más
@@ -15,14 +16,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { revisarReceta } from '../../../shared/alergias.js';
+import {
+  MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, requiereConsentimiento, textoConsentimiento,
+} from '../../../shared/consentimientos.js';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, ErrorApi, noEncontrado } from '../lib/errores.js';
 import {
-  esquemaPieza, esquemaPiezas, PROCEDIMIENTOS,
+  esquemaCedula, esquemaPieza, esquemaPiezas, PROCEDIMIENTOS,
 } from '../lib/esquemas.js';
-import { fechaLocal, hoyLocal, rangoDia } from '../lib/fechas.js';
+import { calcularEdad, fechaLocal, hoyLocal, rangoDia } from '../lib/fechas.js';
 import { prisma } from '../lib/prisma.js';
-import { citaPublica, nombreCompleto, recetaPublica } from '../lib/serializar.js';
+import {
+  citaPublica, consentimientoPublico, nombreCompleto, recetaPublica,
+} from '../lib/serializar.js';
 import { validar } from '../lib/validar.js';
 import { requiereRol } from '../middlewares/auth.js';
 import { alertaPublica, signosPublicos } from './enfermeria.js';
@@ -48,6 +54,7 @@ const diagnosticoPublico = (d) => ({
   creadoEn: d.creadoEn,
   odontologo: d.odontologo?.nombre,
 });
+
 
 
 /** Busca la cita y verifica que se pueda registrar en ella */
@@ -142,6 +149,7 @@ rutasConsultas.get('/:citaId', puedeVer, async (req, res) => {
         include: { medicamentos: { orderBy: { orden: 'asc' } }, odontologo: { select: { nombre: true } } },
         orderBy: { creadoEn: 'desc' },
       },
+      consentimientos: { include: { odontologo: { select: { nombre: true } } }, orderBy: { aceptadoEn: 'asc' } },
     },
   });
   if (!cita) throw noEncontrado('Cita');
@@ -166,6 +174,7 @@ rutasConsultas.get('/:citaId', puedeVer, async (req, res) => {
     historial: historial.map(diagnosticoPublico),
     odontograma: await odontogramaDeCita(cita),
     recetas: cita.recetas.map(recetaPublica),
+    consentimientos: cita.consentimientos.map(consentimientoPublico),
   });
 });
 
@@ -185,6 +194,16 @@ const esquemaDiagnostico = z.object({
 rutasConsultas.post('/:citaId/diagnosticos', puedeAtender, async (req, res) => {
   const d = validar(esquemaDiagnostico, req.body);
   const cita = await citaEnConsulta(req.params.citaId);
+
+  // Un procedimiento que se realiza (no solo se planifica) necesita consentimiento previo
+  if (requiereConsentimiento(d.procedimiento) && d.estado !== 'PENDIENTE') {
+    const firmado = await prisma.consentimiento.findFirst({ where: { citaId: cita.id, procedimiento: d.procedimiento } });
+    if (!firmado) {
+      throw new ErrorApi(409, `Falta el consentimiento informado para ${d.procedimiento.toLowerCase()}.`, {
+        procedimiento: 'Registra el consentimiento informado antes de realizar este procedimiento, o márcalo como pendiente.',
+      });
+    }
+  }
 
   const diagnostico = await prisma.diagnostico.create({
     data: { ...d, citaId: cita.id, odontologoId: req.usuario.id },
@@ -320,6 +339,71 @@ rutasConsultas.post('/:citaId/recetas', puedeAtender, async (req, res) => {
     receta: recetaPublica(receta),
     paciente: { nombre: nombreCompleto(cita.paciente), cedula: cita.paciente.cedula },
   });
+});
+
+// ==================== CONSENTIMIENTO INFORMADO ====================
+
+const esquemaConsentimiento = z.object({
+  procedimiento: z.enum(PROCEDIMIENTOS_CON_CONSENTIMIENTO, {
+    errorMap: () => ({ message: 'Este procedimiento no requiere consentimiento escrito.' }),
+  }),
+  esRepresentante: z.boolean().default(false),
+  firmante: z.object({
+    nombre: z.string().trim().min(5, 'Escribe nombres y apellidos.').max(120)
+      .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/, 'Solo letras.'),
+    cedula: esquemaCedula,
+    parentesco: z.enum(PARENTESCOS, { errorMap: () => ({ message: 'Elige el parentesco.' }) }),
+  }).optional(),
+  aceptado: z.literal(true, { errorMap: () => ({ message: 'Confirma que se explicó el procedimiento y fue aceptado.' }) }),
+});
+
+rutasConsultas.post('/:citaId/consentimientos', puedeAtender, async (req, res) => {
+  const d = validar(esquemaConsentimiento, req.body);
+  const cita = await citaEnConsulta(req.params.citaId);
+  const paciente = { nombre: nombreCompleto(cita.paciente), cedula: cita.paciente.cedula };
+
+  // Los menores de edad firman a través de su representante
+  const edad = calcularEdad(cita.paciente.fechaNacimiento);
+  if (edad.anios < MAYORIA_DE_EDAD && !d.esRepresentante) {
+    throw new ErrorApi(400, 'El paciente es menor de edad: debe firmar su representante.', {
+      esRepresentante: 'El paciente es menor de edad: debe firmar su representante.',
+    });
+  }
+  if (d.esRepresentante && !d.firmante) {
+    throw new ErrorApi(400, 'Faltan los datos del representante.', { 'firmante.nombre': 'Escribe nombres y apellidos.' });
+  }
+  if (d.esRepresentante && d.firmante.cedula === paciente.cedula) {
+    throw new ErrorApi(400, 'El representante no puede ser el mismo paciente.', { 'firmante.cedula': 'Es la cédula del paciente.' });
+  }
+
+  const firmante = d.esRepresentante ? d.firmante : { nombre: paciente.nombre, cedula: paciente.cedula };
+  const textoAceptado = textoConsentimiento({
+    procedimiento: d.procedimiento,
+    paciente,
+    firmante,
+    esRepresentante: d.esRepresentante,
+    odontologo: req.usuario.nombre,
+  });
+
+  const consentimiento = await prisma.consentimiento.create({
+    data: {
+      citaId: cita.id,
+      procedimiento: d.procedimiento,
+      textoAceptado,
+      firmanteNombre: firmante.nombre,
+      firmanteCedula: firmante.cedula,
+      esRepresentante: d.esRepresentante,
+      odontologoId: req.usuario.id,
+    },
+    include: { odontologo: { select: { nombre: true } } },
+  });
+  await auditar(req, {
+    accion: 'CREAR',
+    entidad: 'Consentimiento',
+    entidadId: consentimiento.id,
+    detalle: { citaId: cita.id, procedimiento: d.procedimiento, esRepresentante: d.esRepresentante },
+  });
+  res.status(201).json({ consentimiento: consentimientoPublico(consentimiento) });
 });
 
 // ==================== FINALIZAR ====================
