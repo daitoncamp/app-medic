@@ -126,6 +126,8 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `GET /api/pacientes/:cedula` | Con sesión | Ficha: datos, antecedentes, alertas, odontograma, citas, diagnósticos y recetas. Queda auditado |
 | `POST /api/pacientes` | Recepción, Admin | Crea o actualiza un paciente por cédula |
 | `PATCH /api/pacientes/:cedula` | Recepción, Admin | Edita datos del paciente |
+| `POST /api/pacientes/:cedula/antecedentes` | Recepción, Enfermería, Odontología, Admin | `{ tipo, descripcion }`. Tipos: ALERGIA, ENFERMEDAD, MEDICACION, CIRUGIA, EMBARAZO, HABITO, OTRO. 409 si ya está registrado |
+| `PATCH /api/pacientes/:cedula/antecedentes/:id` | Recepción, Enfermería, Odontología, Admin | `{ descripcion }` o `{ vigente: false }` cuando ya no aplica. No se borran |
 | `GET /api/citas?fecha=&desde=&hasta=&todas=1&estado=&buscar=` | Con sesión | Lista de citas (por defecto, las de hoy) |
 | `POST /api/citas` | Recepción, Admin | `{ paciente, fecha, hora, tipoConsulta, confirmar }`. Rechaza fechas pasadas y horarios ocupados (409) |
 | `POST /api/citas/sin-cita` | Recepción, Admin | Paciente que llega sin cita: queda confirmado para enfermería |

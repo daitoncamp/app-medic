@@ -42,6 +42,8 @@ export const esquemaPaciente = z.object({
     .transform((v) => v || null),
 });
 
+export const TIPOS_ANTECEDENTE = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'CIRUGIA', 'EMBARAZO', 'HABITO', 'OTRO'];
+
 export const TIPOS_CONSULTA = ['Revisión', 'Limpieza dental', 'Extracción', 'Endodoncia', 'Ortodoncia', 'Resina', 'Corona'];
 
 // ==================== CONSULTA ODONTOLÓGICA ====================

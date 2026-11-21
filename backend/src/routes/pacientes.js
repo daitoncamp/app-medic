@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, noEncontrado } from '../lib/errores.js';
 import { fechaLocal } from '../lib/fechas.js';
-import { esquemaPaciente } from '../lib/esquemas.js';
+import { esquemaPaciente, TIPOS_ANTECEDENTE } from '../lib/esquemas.js';
 import { prisma } from '../lib/prisma.js';
 import { citaPublica, pacienteResumen, recetaPublica } from '../lib/serializar.js';
 import { validar } from '../lib/validar.js';
@@ -17,6 +17,18 @@ import { requiereRol } from '../middlewares/auth.js';
 
 export const rutasPacientes = Router();
 const puedeEditar = requiereRol('RECEPCIONISTA', 'ADMIN');
+// Los antecedentes los puede registrar cualquier persona del equipo clínico
+const puedeRegistrarAntecedentes = requiereRol('RECEPCIONISTA', 'ENFERMERA', 'ODONTOLOGA', 'ADMIN');
+
+const antecedentePublico = (a) => ({
+  id: a.id,
+  tipo: a.tipo,
+  descripcion: a.descripcion,
+  vigente: a.vigente,
+  creadoEn: a.creadoEn,
+  actualizadoEn: a.actualizadoEn,
+  registradoPor: a.registradoPor?.nombre,
+});
 
 /** Minúsculas y sin tildes: "Macías" → "macias" */
 export const normalizar = (texto) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -96,7 +108,7 @@ rutasPacientes.get('/:cedula', async (req, res) => {
   const paciente = await prisma.paciente.findUnique({
     where: { cedula: req.params.cedula },
     include: {
-      antecedentes: { where: { vigente: true }, orderBy: { creadoEn: 'asc' } },
+      antecedentes: { include: { registradoPor: { select: { nombre: true } } }, orderBy: { creadoEn: 'asc' } },
       alertas: { orderBy: { creadoEn: 'desc' } },
       marcas: { orderBy: { creadoEn: 'asc' } },
       citas: {
@@ -122,7 +134,8 @@ rutasPacientes.get('/:cedula', async (req, res) => {
 
   res.json({
     paciente: pacienteResumen(paciente),
-    antecedentes: paciente.antecedentes.map(({ id, tipo, descripcion, creadoEn }) => ({ id, tipo, descripcion, creadoEn })),
+    // Incluye los que ya no aplican (vigente: false): son parte de la historia
+    antecedentes: paciente.antecedentes.map(antecedentePublico),
     alertas: paciente.alertas.map((a) => ({
       id: a.id, citaId: a.citaId, tipo: a.tipo, signo: a.signo, severidad: a.severidad,
       titulo: a.titulo, descripcion: a.descripcion, creadoEn: a.creadoEn,
@@ -169,4 +182,74 @@ rutasPacientes.patch('/:cedula', puedeEditar, async (req, res) => {
   const paciente = await prisma.paciente.update({ where: { id: actual.id }, data: datosPaciente(datos) });
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Paciente', entidadId: paciente.id });
   res.json({ paciente: pacienteResumen(paciente) });
+});
+
+// ==================== ANTECEDENTES ====================
+//   POST  /api/pacientes/:cedula/antecedentes        { tipo, descripcion }
+//   PATCH /api/pacientes/:cedula/antecedentes/:id    { descripcion?, vigente? }
+// No se borran: cuando ya no aplican se marcan con vigente: false.
+
+const esquemaDescripcionAntecedente = z.string({ required_error: 'La descripción es obligatoria.' }).trim()
+  .min(2, 'Describe el antecedente.')
+  .max(300, 'Máximo 300 caracteres.');
+
+const esquemaAntecedente = z.object({
+  tipo: z.enum(TIPOS_ANTECEDENTE, { errorMap: () => ({ message: 'Elige un tipo de la lista.' }) }),
+  descripcion: esquemaDescripcionAntecedente,
+});
+
+const esquemaCambioAntecedente = z.object({
+  descripcion: esquemaDescripcionAntecedente.optional(),
+  vigente: z.boolean().optional(),
+}).refine((d) => d.descripcion !== undefined || d.vigente !== undefined, 'No hay cambios.');
+
+async function pacientePorCedula(cedula) {
+  const paciente = await prisma.paciente.findUnique({ where: { cedula } });
+  if (!paciente) throw noEncontrado('Paciente');
+  return paciente;
+}
+
+rutasPacientes.post('/:cedula/antecedentes', puedeRegistrarAntecedentes, async (req, res) => {
+  const d = validar(esquemaAntecedente, req.body);
+  const paciente = await pacientePorCedula(req.params.cedula);
+
+  // Evita duplicar el mismo antecedente vigente
+  const repetido = await prisma.antecedente.findFirst({
+    where: {
+      pacienteId: paciente.id, tipo: d.tipo, vigente: true, descripcion: { equals: d.descripcion, mode: 'insensitive' },
+    },
+  });
+  if (repetido) throw conflicto('Ese antecedente ya está registrado.');
+
+  const antecedente = await prisma.antecedente.create({
+    data: { ...d, pacienteId: paciente.id, registradoPorId: req.usuario.id },
+    include: { registradoPor: { select: { nombre: true } } },
+  });
+  await auditar(req, {
+    accion: 'CREAR', entidad: 'Antecedente', entidadId: antecedente.id, detalle: { cedula: paciente.cedula, tipo: d.tipo },
+  });
+  res.status(201).json({ antecedente: antecedentePublico(antecedente) });
+});
+
+rutasPacientes.patch('/:cedula/antecedentes/:id', puedeRegistrarAntecedentes, async (req, res) => {
+  const d = validar(esquemaCambioAntecedente, req.body);
+  const paciente = await pacientePorCedula(req.params.cedula);
+  const actual = await prisma.antecedente.findFirst({ where: { id: req.params.id, pacienteId: paciente.id } });
+  if (!actual) throw noEncontrado('Antecedente');
+
+  const antecedente = await prisma.antecedente.update({
+    where: { id: actual.id },
+    data: d,
+    include: { registradoPor: { select: { nombre: true } } },
+  });
+  await auditar(req, {
+    accion: 'ACTUALIZAR',
+    entidad: 'Antecedente',
+    entidadId: antecedente.id,
+    detalle: {
+      ...(d.descripcion !== undefined ? { antes: actual.descripcion, ahora: d.descripcion } : {}),
+      ...(d.vigente !== undefined ? { vigente: d.vigente } : {}),
+    },
+  });
+  res.json({ antecedente: antecedentePublico(antecedente) });
 });
