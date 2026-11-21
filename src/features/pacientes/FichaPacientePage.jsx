@@ -1,14 +1,15 @@
 import { Link, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faNotesMedical, faPhone,
+  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faPhone,
   faPrescription, faTooth, faUserSlash,
 } from '@fortawesome/free-solid-svg-icons';
 import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
 import { useRecurso } from '../../hooks/useRecurso';
-import { obtenerFicha, TEXTO_ANTECEDENTE } from '../../services/recepcionApi';
+import { obtenerFicha } from '../../services/recepcionApi';
 import { edadTexto, formatearFecha, formatearFechaHora, iniciales } from '../../utils/formato';
 import { ESTADOS_DIENTE } from '../consulta/dientes';
+import AntecedentesCard from './AntecedentesCard';
 import DocumentosPaciente from './DocumentosPaciente';
 import styles from './Pacientes.module.css';
 
@@ -116,15 +117,12 @@ function FichaPacientePage() {
         <div className={styles.sideCol}>
           <DocumentosPaciente ficha={ficha} onCambio={recargar} />
 
-          {antecedentes.length > 0 && (
-            <Card title="Antecedentes médicos" icon={faNotesMedical}>
-              <ul className={styles.antecedentes}>
-                {antecedentes.map((a) => (
-                  <li key={a.id}><strong>{TEXTO_ANTECEDENTE[a.tipo] || a.tipo}:</strong> {a.descripcion}</li>
-                ))}
-              </ul>
-            </Card>
-          )}
+          <AntecedentesCard
+            cedula={paciente.cedula}
+            antecedentes={antecedentes}
+            anteriores={ficha.antecedentesAnteriores}
+            onCambio={recargar}
+          />
 
           {alertas.length > 0 && (
             <Card title="Alertas médicas" icon={faCircleExclamation} iconTone="danger">

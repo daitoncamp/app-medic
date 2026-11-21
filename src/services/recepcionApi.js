@@ -268,7 +268,9 @@ export async function obtenerFicha(cedula) {
 
   return {
     paciente,
-    antecedentes: d.antecedentes,
+    // Los vigentes se usan en pantallas y documentos; los demás quedan como historia
+    antecedentes: d.antecedentes.filter((a) => a.vigente !== false),
+    antecedentesAnteriores: d.antecedentes.filter((a) => a.vigente === false),
     citas,
     eventos,
     alertas,
@@ -277,4 +279,19 @@ export async function obtenerFicha(cedula) {
     ultimosSignos,
     odontograma,
   };
+}
+
+// ==================== ANTECEDENTES ====================
+
+export const TIPOS_ANTECEDENTE = Object.entries(TEXTO_ANTECEDENTE).map(([id, label]) => ({ id, label }));
+
+export async function registrarAntecedente(cedula, { tipo, descripcion }) {
+  const r = await api(`/pacientes/${cedula}/antecedentes`, { method: 'POST', body: { tipo, descripcion } });
+  return r.antecedente;
+}
+
+/** cambios: { descripcion } o { vigente: false } */
+export async function actualizarAntecedente(cedula, id, cambios) {
+  const r = await api(`/pacientes/${cedula}/antecedentes/${id}`, { method: 'PATCH', body: cambios });
+  return r.antecedente;
 }
