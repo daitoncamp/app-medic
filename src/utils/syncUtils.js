@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 // ==================== SISTEMA DE SINCRONIZACIÓN CENTRALIZADO ====================
 // Este archivo maneja la sincronización de datos entre los 3 dashboards
 
@@ -5,7 +7,7 @@
 const SYNC_KEY = 'clinicaDentalSync';
 
 // ==================== ESTRUCTURA DE DATOS CENTRALIZADA ====================
-const estructuraInicial = {
+const estructuraInicial = Object.freeze({
   pacientes: [],           // Todos los pacientes registrados
   citasDelDia: [],        // Citas agendadas para hoy
   pacientesEnEspera: [],  // Pacientes esperando en enfermería
@@ -14,6 +16,21 @@ const estructuraInicial = {
   alertasMedicas: [],     // Alertas médicas activas
   historialOdontologico: [], // Historial de tratamientos odontológicos
   ultimaActualizacion: new Date().toISOString()
+});
+
+// Devuelve siempre una copia nueva para no mutar la estructura base
+const crearEstructuraInicial = () => ({
+  ...structuredClone(estructuraInicial),
+  ultimaActualizacion: new Date().toISOString()
+});
+
+// Genera IDs únicos (evita choques de Date.now() en el mismo milisegundo).
+// crypto.randomUUID solo existe en contextos seguros (https o localhost).
+export const generarId = (prefijo) => {
+  const unico = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefijo}_${unico}`;
 };
 
 // ==================== OBTENER DATOS SINCRONIZADOS ====================
@@ -23,10 +40,10 @@ export const obtenerDatosSync = () => {
     if (datos) {
       return JSON.parse(datos);
     }
-    return estructuraInicial;
+    return crearEstructuraInicial();
   } catch (error) {
     console.error('Error al obtener datos sincronizados:', error);
-    return estructuraInicial;
+    return crearEstructuraInicial();
   }
 };
 
@@ -59,7 +76,7 @@ export const registrarNuevaCita = (cita) => {
   
   // Crear objeto de cita completo
   const nuevaCita = {
-    id: `cita_${Date.now()}`,
+    id: generarId('cita'),
     cedula: cita.cedula,
     paciente: cita.paciente,
     fecha: cita.fecha,
@@ -98,7 +115,7 @@ export const registrarNuevoPaciente = (paciente) => {
   const datos = obtenerDatosSync();
   
   const nuevoPaciente = {
-    id: `paciente_${Date.now()}`,
+    id: generarId('paciente'),
     cedula: paciente.cedula,
     nombre: paciente.nombre,
     sexo: paciente.sexo,
@@ -112,7 +129,7 @@ export const registrarNuevoPaciente = (paciente) => {
   
   // Crear cita automática para hoy y enviar a enfermería
   const citaAutomatica = {
-    id: `cita_${Date.now()}`,
+    id: generarId('cita'),
     cedula: nuevoPaciente.cedula,
     paciente: nuevoPaciente.nombre,
     fecha: new Date().toISOString().split('T')[0],
@@ -255,7 +272,7 @@ export const registrarSignosVitales = (paciente, signosVitales) => {
   });
   
   datos.historialAtenciones.push({
-    id: `atencion_${Date.now()}`,
+    id: generarId('atencion'),
     paciente: paciente.paciente,
     fecha: fecha,
     tratamiento: '--',
@@ -265,7 +282,7 @@ export const registrarSignosVitales = (paciente, signosVitales) => {
   // Detectar alertas médicas (alergias, valores anormales)
   if (/alerg/i.test(signosVitales.observaciones)) {
     datos.alertasMedicas.push({
-      id: `alerta_${Date.now()}`,
+      id: generarId('alerta'),
       paciente: paciente.paciente,
       descripcion: signosVitales.observaciones,
       tipo: 'alergia',
@@ -353,7 +370,7 @@ export const registrarDiagnostico = (paciente, diagnostico) => {
   const datos = obtenerDatosSync();
   
   const nuevoDiagnostico = {
-    id: `diagnostico_${Date.now()}`,
+    id: generarId('diagnostico'),
     pacienteId: paciente.id,
     paciente: paciente.nombre,
     diente: diagnostico.diente,
@@ -461,7 +478,7 @@ export const migrarDatosExistentes = () => {
       if (datos.citas) {
         datosSync.citasDelDia = [...datosSync.citasDelDia, ...datos.citas.map(c => ({
           ...c,
-          id: c.id || `cita_${Date.now()}_${Math.random()}`,
+          id: c.id || generarId('cita'),
           enEnfermeria: false,
           preparado: false,
           enOdontologia: false
