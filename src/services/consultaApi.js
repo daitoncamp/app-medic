@@ -12,9 +12,14 @@ export const ESTADOS_PROCEDIMIENTO = [
   { id: 'PENDIENTE', label: 'Pendiente (planificado)' },
 ];
 
-/** Odontograma de la API ({ 16: 'CARIES' }) → pantalla ({ 16: 'caries' }) */
-const odontogramaPantalla = (mapa = {}) =>
-  Object.fromEntries(Object.entries(mapa).map(([pieza, estado]) => [pieza, estado.toLowerCase()]));
+/**
+ * Odontograma de la API ({ 16: { completa: 'CARIES', caras: { OCLUSAL: 'TRATADO' } } })
+ * → pantalla (estados en minúscula; las caras conservan su nombre de la API)
+ */
+export const odontogramaPantalla = (mapa = {}) => Object.fromEntries(Object.entries(mapa).map(([pieza, m]) => [pieza, {
+  completa: m.completa ? m.completa.toLowerCase() : null,
+  caras: Object.fromEntries(Object.entries(m.caras || {}).map(([cara, e]) => [cara, e.toLowerCase()])),
+}]));
 
 const adaptarOdontograma = ({ anterior, actual }) => ({
   anterior: odontogramaPantalla(anterior),
@@ -121,11 +126,14 @@ export async function registrarDiagnostico(citaId, { diagnostico, diente, proced
   }
 }
 
-/** estado: 'caries' | ... ; null quita la marca hecha en esta consulta */
-export async function marcarPieza(citaId, pieza, estado) {
+/**
+ * estado: 'caries' | … ; cara: 'COMPLETA' (por defecto) u 'OCLUSAL', 'MESIAL'…
+ * estado null quita las marcas de esa pieza hechas en esta consulta.
+ */
+export async function marcarPieza(citaId, pieza, estado, cara = 'COMPLETA') {
   const ruta = `/consultas/${citaId}/odontograma/${pieza}`;
   const r = estado
-    ? await api(ruta, { method: 'PUT', body: { estado: estado.toUpperCase() } })
+    ? await api(ruta, { method: 'PUT', body: { estado: estado.toUpperCase(), cara } })
     : await api(ruta, { method: 'DELETE' });
   return adaptarOdontograma(r.odontograma);
 }

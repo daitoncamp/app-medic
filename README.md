@@ -81,7 +81,9 @@ src/
 └── utils/                  validaciones y formatos de fecha
 shared/                     reglas que usan el frontend y el backend:
 ├── signosVitales.js        rangos por edad y alertas
-└── alergias.js             aviso de alergia al recetar
+├── alergias.js             aviso de alergia al recetar
+├── consentimientos.js      plantillas del consentimiento informado
+└── odontograma.js          combinación de marcas por diente y por caras
 ```
 
 ### Diseño

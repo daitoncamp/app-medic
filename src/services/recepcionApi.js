@@ -226,7 +226,11 @@ export async function obtenerFicha(cedula) {
     hallazgos: alertas.filter((a) => a.citaId === conSignos.id && a.tipo === 'signos'),
   };
 
-  const odontograma = Object.fromEntries(Object.entries(d.odontograma).map(([pieza, estado]) => [pieza, estado.toLowerCase()]));
+  // { 16: { completa: 'caries', caras: { OCLUSAL: 'tratado' } } }
+  const odontograma = Object.fromEntries(Object.entries(d.odontograma).map(([pieza, m]) => [pieza, {
+    completa: m.completa ? m.completa.toLowerCase() : null,
+    caras: Object.fromEntries(Object.entries(m.caras || {}).map(([cara, e]) => [cara, e.toLowerCase()])),
+  }]));
 
   const eventos = [
     ...d.citas.map((c) => ({

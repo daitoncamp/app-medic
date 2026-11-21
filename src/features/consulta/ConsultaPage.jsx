@@ -14,6 +14,7 @@ import {
   obtenerAgenda, obtenerConsulta, PROCEDIMIENTOS, registrarConsentimiento, registrarDiagnostico,
 } from '../../services/consultaApi';
 import { requiereConsentimiento } from '../../utils/consentimientos';
+import { combinarOdontograma } from '../../utils/odontograma';
 import { TEXTO_ANTECEDENTE } from '../../services/recepcionApi';
 import { formatearFecha } from '../../utils/formato';
 import { requerido, validarFormulario } from '../../utils/validaciones';
@@ -123,10 +124,17 @@ function ConsultaPage() {
     }
   };
 
-  const marcar = (pieza, estado) => cambiarOdontograma(
-    { ...odontograma, actual: { ...odontograma.actual, [pieza]: estado } },
-    () => marcarPieza(citaId, pieza, estado),
-  );
+  // En una visita, la pieza se marca completa o por caras (igual que en el servidor)
+  const marcar = (pieza, estado, cara = 'COMPLETA') => {
+    const hoy = odontograma.actual[pieza];
+    const nueva = cara === 'COMPLETA'
+      ? { completa: estado, caras: {} }
+      : { completa: null, caras: { ...(hoy?.completa ? {} : hoy?.caras), [cara]: estado } };
+    return cambiarOdontograma(
+      { ...odontograma, actual: { ...odontograma.actual, [pieza]: nueva } },
+      () => marcarPieza(citaId, pieza, estado, cara),
+    );
+  };
 
   const quitar = (pieza) => {
     const actual = { ...odontograma.actual };
@@ -275,7 +283,7 @@ function ConsultaPage() {
   };
   const sv = paciente.signosVitales;
   const otrosAntecedentes = antecedentes.filter((a) => a.tipo !== 'ALERGIA');
-  const odontogramaVisible = { ...odontograma.anterior, ...odontograma.actual };
+  const odontogramaVisible = combinarOdontograma(odontograma.anterior, odontograma.actual);
 
   return (
     <>

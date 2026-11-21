@@ -226,3 +226,64 @@
   outline: 2px solid var(--gray-900);
   outline-offset: 1px;
 }
+
+/* ===== Caras del diente ===== */
+.facesSvg {
+  width: 70%;
+  max-width: 22px;
+  height: auto;
+}
+
+.facesPanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.facesBig {
+  width: 150px;
+  height: 150px;
+  flex-shrink: 0;
+}
+
+.facesBig polygon:hover,
+.facesBig polygon:focus-visible {
+  opacity: 0.8;
+  outline: none;
+}
+
+.facesInfo {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.facesTitle {
+  font-weight: 700;
+  font-size: var(--text-base, 1rem);
+}
+
+.facesList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  color: var(--gray-700);
+}
+
+.facesList strong {
+  display: inline-block;
+  width: 1.2em;
+}
+
+@media (max-width: 640px) {
+  .facesPanel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

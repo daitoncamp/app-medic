@@ -40,3 +40,52 @@ export const tipoDiente = (numero) => {
   if (temporal || posicion >= 6) return 'molar';
   return 'premolar';
 };
+
+// ==================== CARAS DEL DIENTE ====================
+
+const ANTERIOR = ['incisivo', 'canino'];
+
+/** Nombre de la cara según el diente: oclusal/incisal y lingual/palatino */
+export const nombreCara = (cara, numero) => {
+  const anterior = ANTERIOR.includes(tipoDiente(numero));
+  return {
+    VESTIBULAR: 'Vestibular',
+    LINGUAL: esSuperior(numero) ? 'Palatino' : 'Lingual',
+    MESIAL: 'Mesial',
+    DISTAL: 'Distal',
+    OCLUSAL: anterior ? 'Incisal' : 'Oclusal',
+  }[cara] || cara;
+};
+
+/** Abreviatura (O, I, M, D, V, L, P) para listas y el PDF */
+export const abreviaturaCara = (cara, numero) => nombreCara(cara, numero).charAt(0);
+
+/**
+ * Qué cara va en cada lado del dibujo de 5 caras, visto de frente al paciente:
+ * - arriba/abajo: vestibular hacia afuera de la boca (arriba en la arcada superior, abajo en la inferior)
+ * - izquierda/derecha: mesial hacia la línea media
+ */
+export const carasPorPosicion = (numero) => {
+  const cuadrante = Math.floor(numero / 10);
+  const ladoDerechoDelPaciente = [1, 4, 5, 8].includes(cuadrante); // se dibuja a la izquierda
+  return {
+    arriba: esSuperior(numero) ? 'VESTIBULAR' : 'LINGUAL',
+    abajo: esSuperior(numero) ? 'LINGUAL' : 'VESTIBULAR',
+    izquierda: ladoDerechoDelPaciente ? 'DISTAL' : 'MESIAL',
+    derecha: ladoDerechoDelPaciente ? 'MESIAL' : 'DISTAL',
+    centro: 'OCLUSAL',
+  };
+};
+
+const PRIORIDAD = ['caries', 'observacion', 'tratado', 'sano'];
+
+/** Estado que resume la pieza (para el color del número y los conteos) */
+export const estadoPrincipal = (marca) => {
+  if (!marca) return null;
+  if (marca.completa) return marca.completa;
+  const caras = Object.values(marca.caras || {});
+  return PRIORIDAD.find((e) => caras.includes(e)) || null;
+};
+
+/** Estado de una cara: su propia marca o, si no tiene, la del diente completo */
+export const estadoCara = (marca, cara) => marca?.caras?.[cara] || marca?.completa || null;

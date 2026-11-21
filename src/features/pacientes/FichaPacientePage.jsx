@@ -8,7 +8,8 @@ import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../component
 import { useRecurso } from '../../hooks/useRecurso';
 import { obtenerFicha } from '../../services/recepcionApi';
 import { edadTexto, formatearFecha, formatearFechaHora, iniciales } from '../../utils/formato';
-import { ESTADOS_DIENTE } from '../consulta/dientes';
+import { abreviaturaCara, ESTADOS_DIENTE } from '../consulta/dientes';
+import { estadosDePieza } from '../../utils/odontograma';
 import AntecedentesCard from './AntecedentesCard';
 import DocumentosPaciente from './DocumentosPaciente';
 import styles from './Pacientes.module.css';
@@ -54,10 +55,18 @@ function FichaPacientePage() {
   }
 
   const { paciente, citas, eventos, alertas, odontograma, antecedentes } = ficha;
-  const marcados = Object.values(odontograma);
+  // Por estado, las piezas que lo tienen: "16 (O, M)" si es por caras, "16" si es el diente completo
   const resumenOdontograma = ESTADOS_DIENTE
-    .map((e) => ({ ...e, total: marcados.filter((v) => v === e.id).length }))
-    .filter((e) => e.total > 0);
+    .map((e) => ({
+      ...e,
+      piezas: Object.entries(odontograma)
+        .filter(([, m]) => estadosDePieza(m).includes(e.id))
+        .map(([n, m]) => {
+          const caras = Object.entries(m.caras || {}).filter(([, v]) => v === e.id).map(([c]) => abreviaturaCara(c, Number(n)));
+          return m.completa === e.id || !caras.length ? n : `${n} (${caras.join(', ')})`;
+        }),
+    }))
+    .filter((e) => e.piezas.length > 0);
 
   return (
     <>
@@ -152,7 +161,7 @@ function FichaPacientePage() {
                   <li key={e.id}>
                     <span>{e.label}</span>
                     <strong>
-                      {Object.entries(odontograma).filter(([, v]) => v === e.id).map(([n]) => n).join(', ')}
+                      {e.piezas.join(', ')}
                     </strong>
                   </li>
                 ))}

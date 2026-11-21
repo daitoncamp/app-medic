@@ -5,7 +5,10 @@ import { jsPDF } from 'jspdf';
 import logoUleam from '../../assets/logo-uleam.png';
 import { fechaLocalISO } from '../../services/clinica';
 import { aFecha, formatearFecha, formatearFechaHora } from '../../utils/formato';
-import { DIENTES, ESTADOS_DIENTE, estadoDiente, tipoDiente } from './dientes';
+import {
+  carasPorPosicion, DIENTES, ESTADOS_DIENTE, estadoCara, estadoDiente, estadoPrincipal, tipoDiente,
+} from './dientes';
+import { estadosDePieza } from '../../utils/odontograma';
 
 // Nombre por defecto si el documento no trae quién lo emitió
 const ODONTOLOGA = 'Odontóloga tratante';
@@ -330,7 +333,38 @@ export async function generarRecetaPDF(paciente, receta) {
 
 // ==================== ODONTOGRAMA EN EL PDF ====================
 
-/** Dibuja el odontograma (dentición permanente) con un diente simplificado por pieza */
+/** Polígono cerrado a partir de puntos absolutos [[x, y], …] */
+function poligono(doc, puntos, estilo) {
+  const [x0, y0] = puntos[0];
+  const segmentos = puntos.slice(1).map(([x, y], i) => [x - puntos[i][0], y - puntos[i][1]]);
+  doc.lines(segmentos, x0, y0, [1, 1], estilo, true);
+}
+
+/** Las 5 caras de una pieza dentro de un cuadrado (x, y, lado) */
+function carasPDF(doc, numero, marca, x, y, lado) {
+  const a = lado * 0.3; // borde del cuadrado central
+  const P = {
+    arriba: [[x, y], [x + lado, y], [x + lado - a, y + a], [x + a, y + a]],
+    abajo: [[x + a, y + lado - a], [x + lado - a, y + lado - a], [x + lado, y + lado], [x, y + lado]],
+    izquierda: [[x, y], [x + a, y + a], [x + a, y + lado - a], [x, y + lado]],
+    derecha: [[x + lado, y], [x + lado, y + lado], [x + lado - a, y + lado - a], [x + lado - a, y + a]],
+    centro: [[x + a, y + a], [x + lado - a, y + a], [x + lado - a, y + lado - a], [x + a, y + lado - a]],
+  };
+  const posiciones = carasPorPosicion(numero);
+  doc.setLineWidth(0.15);
+  Object.entries(P).forEach(([posicion, puntos]) => {
+    const info = estadoDiente(estadoCara(marca, posiciones[posicion]));
+    relleno(doc, info ? hexARgb(info.fill) : C.blanco);
+    trazo(doc, info ? hexARgb(info.stroke) : [184, 192, 204]);
+    poligono(doc, puntos, 'FD');
+  });
+}
+
+/**
+ * Dibuja el odontograma (dentición permanente) con un diente simplificado por pieza.
+ * estados: { [pieza]: { completa, caras } }. Si la pieza tiene caras marcadas,
+ * la corona se dibuja con sus 5 caras.
+ */
 function odontogramaPDF(doc, estados, y) {
   const anchoDiente = 9.2;
   const separacion = 1;
@@ -357,7 +391,10 @@ function odontogramaPDF(doc, estados, y) {
     let x = xInicio;
     cuadrantes.forEach((cuadrante, iCuadrante) => {
       cuadrante.forEach((numero) => {
-        const info = estadoDiente(estados[numero]);
+        const marca = estados[numero];
+        const info = estadoDiente(marca?.completa);
+        const principal = estadoDiente(estadoPrincipal(marca));
+        const porCaras = Object.keys(marca?.caras || {}).length > 0;
         const tipo = tipoDiente(numero);
         const anchoCorona = tipo === 'molar' ? anchoDiente : tipo === 'premolar' ? anchoDiente - 1.2 : anchoDiente - 2.6;
         const xc = x + (anchoDiente - anchoCorona) / 2;
@@ -380,15 +417,19 @@ function odontogramaPDF(doc, estados, y) {
         trazo(doc, info ? hexARgb(info.stroke) : [184, 192, 204]);
         doc.setLineWidth(0.4);
         doc.roundedRect(xc, yCorona, anchoCorona, 8, 1.6, 1.6, 'FD');
+        if (porCaras) {
+          const lado = Math.min(anchoCorona, 8) - 1.4;
+          carasPDF(doc, numero, marca, xc + (anchoCorona - lado) / 2, yCorona + (8 - lado) / 2, lado);
+        }
 
-        if (estados[numero] === 'ausente') {
+        if (marca?.completa === 'ausente') {
           trazo(doc, [107, 114, 128]);
           doc.setLineWidth(0.5);
           doc.line(xc, yCorona - 2, xc + anchoCorona, yCorona + 10);
           doc.line(xc + anchoCorona, yCorona - 2, xc, yCorona + 10);
         }
 
-        fuente(doc, 6.5, 'bold', info ? hexARgb(info.text) : C.suave);
+        fuente(doc, 6.5, 'bold', principal ? hexARgb(principal.text) : C.suave);
         doc.text(String(numero), x + anchoDiente / 2, superior ? centro - 2.5 : centro + 5, { align: 'center' });
         x += anchoDiente + separacion;
       });
@@ -403,7 +444,7 @@ function odontogramaPDF(doc, estados, y) {
   let x = MARGEN;
   const yLeyenda = y + 65;
   ESTADOS_DIENTE.forEach((e) => {
-    const total = Object.values(estados).filter((v) => v === e.id).length;
+    const total = Object.values(estados).filter((m) => estadosDePieza(m).includes(e.id)).length;
     relleno(doc, hexARgb(e.fill));
     trazo(doc, hexARgb(e.stroke));
     doc.setLineWidth(0.3);
