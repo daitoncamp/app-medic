@@ -134,7 +134,7 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/citas/:id/no-asistio` | Recepción, Admin | Marca la inasistencia |
 | `POST /api/citas/:id/anular` | Recepción, Admin | `{ motivo }`. Las citas no se borran: quedan anuladas con motivo y usuario |
 | `GET /api/enfermeria/sala` | Enfermería, Odontología, Admin | Sala de espera (con alergias y antecedentes), preparados, alertas de hoy, últimas tomas y métricas |
-| `POST /api/enfermeria/citas/:id/signos` | Enfermería, Admin | `{ presion: "120/80", pulso, temperatura, observaciones }`. Evalúa según la edad, crea las alertas y pasa la cita a preparada. 409 si otra persona ya lo registró |
+| `POST /api/enfermeria/citas/:id/signos` | Enfermería, Admin | `{ presion: "120/80", pulso, temperatura, frecuenciaRespiratoria?, saturacion?, observaciones }`. Evalúa según la edad, crea las alertas y pasa la cita a preparada. 409 si otra persona ya lo registró |
 
 | `GET /api/consultas/agenda` | Odontología, Admin | Pacientes preparados de hoy, atendidos, procedimientos del mes |
 | `GET /api/consultas/:citaId` | Odontología, Admin | Paciente, signos, alertas, antecedentes, historial, odontograma y recetas de la cita |
@@ -162,6 +162,8 @@ Las reglas están en [`shared/alergias.js`](../shared/alergias.js). Es una ayuda
 Las reglas están en [`shared/signosVitales.js`](../shared/signosVitales.js), en la raíz del repositorio.
 El formulario las usa para la vista previa y la API para guardar, así que las dos siempre coinciden.
 La edad se calcula en el servidor con la fecha de nacimiento del paciente; no se confía en la que envíe el navegador.
+La frecuencia respiratoria (rangos PALS y criterio de la OMS en menores de 5 años; NEWS2 en adultos) y la
+saturación de oxígeno (NEWS2, escala 1) son opcionales: se evalúan solo si se registran.
 Las observaciones que mencionan una alergia crean una alerta, salvo frases que la niegan ("niega alergias", "sin alergias conocidas").
 
 Por esa carpeta compartida, si algún día armas una imagen de Docker del backend, el contexto de construcción debe ser la raíz del repositorio.

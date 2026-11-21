@@ -136,7 +136,7 @@ rutasPacientes.get('/:cedula', async (req, res) => {
         pulso: c.signosVitales.pulso,
         temperatura: Number(c.signosVitales.temperatura),
         frecuenciaRespiratoria: c.signosVitales.frecuenciaRespiratoria,
-        saturacionO2: c.signosVitales.saturacionO2,
+        saturacion: c.signosVitales.saturacionO2,
         observaciones: c.signosVitales.observaciones,
         creadoEn: c.signosVitales.creadoEn,
       },

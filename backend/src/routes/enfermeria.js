@@ -1,6 +1,7 @@
 // ==================== ENFERMERÍA ====================
 //   GET  /api/enfermeria/sala               sala de espera, preparados, alertas y métricas de hoy
-//   POST /api/enfermeria/citas/:id/signos   { presion: "120/80", pulso, temperatura, observaciones }
+//   POST /api/enfermeria/citas/:id/signos   { presion: "120/80", pulso, temperatura,
+//                                            frecuenciaRespiratoria?, saturacion?, observaciones }
 //
 // Los signos se evalúan aquí, en el servidor, con la edad calculada a partir de
 // la fecha de nacimiento. Las reglas están en /shared/signosVitales.js, las
@@ -33,6 +34,8 @@ export const signosPublicos = (s) => s && ({
   presionDiastolica: s.presionDiastolica,
   pulso: s.pulso,
   temperatura: Number(s.temperatura),
+  frecuenciaRespiratoria: s.frecuenciaRespiratoria,
+  saturacion: s.saturacionO2,
   observaciones: s.observaciones,
   edadMeses: s.edadMeses,
   creadoEn: s.creadoEn,
@@ -134,6 +137,9 @@ const esquemaSignos = z.object({
   presion: z.string().trim().max(10),
   pulso: z.union([z.string(), z.number()]).transform(String),
   temperatura: z.union([z.string(), z.number()]).transform(String),
+  // Opcionales: no todas las consultas tienen oxímetro
+  frecuenciaRespiratoria: z.union([z.string(), z.number(), z.null()]).optional().transform((v) => (v === null || v === undefined ? '' : String(v))),
+  saturacion: z.union([z.string(), z.number(), z.null()]).optional().transform((v) => (v === null || v === undefined ? '' : String(v))),
   observaciones: z.string().trim().max(1000).optional().default(''),
 });
 
@@ -157,8 +163,19 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
   const temperatura = Number(d.temperatura.replace(',', '.'));
   const edad = calcularEdad(cita.paciente.fechaNacimiento);
   const observaciones = d.observaciones || null;
+  const opcional = (v) => (v.trim() ? Number(v) : null);
+  const frecuenciaRespiratoria = opcional(d.frecuenciaRespiratoria);
+  const saturacion = opcional(d.saturacion);
   const hallazgos = alertasDeLaToma({
-    presion: d.presion, pulso, temperatura, observaciones, edad: edad.anios, sexo: cita.paciente.sexo,
+    presion: d.presion,
+    pulso,
+    temperatura,
+    frecuenciaRespiratoria,
+    saturacion,
+    observaciones,
+    edad: edad.anios,
+    edadMeses: edad.meses,
+    sexo: cita.paciente.sexo,
   });
 
   const resultado = await prisma.$transaction(async (tx) => {
@@ -176,6 +193,8 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
         presionDiastolica: diastolica,
         pulso,
         temperatura,
+        frecuenciaRespiratoria,
+        saturacionO2: saturacion,
         observaciones,
         edadMeses: edad.meses,
         registradoPorId: req.usuario.id,

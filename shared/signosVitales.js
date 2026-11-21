@@ -12,7 +12,13 @@
 // - Presión en adolescentes (13+) y adultos: categorías ACC/AHA 2017.
 // - Temperatura: hipotermia < 35 °C; febrícula, fiebre, fiebre alta e hipertermia (> 41 °C)
 //   según la clasificación de StatPearls (NCBI).
+// - Frecuencia respiratoria en niños: rangos normales PALS 2015 y "respiración rápida"
+//   de la OMS en menores de 5 años (> 60 hasta 2 meses, > 50 de 2 a 12 meses, > 40 de 1 a 5 años).
+//   En cualquier niño, menos de 10 o más de 60 rpm es anormal (PALS).
+// - Frecuencia respiratoria en adultos (16+) y saturación de oxígeno: umbrales de NEWS2
+//   (Royal College of Physicians, 2017), escala 1 de SpO2.
 //
+// La frecuencia respiratoria y la saturación son opcionales: se evalúan si se registran.
 // La edad (en años cumplidos) se calcula con la fecha de nacimiento del paciente.
 
 export const SEVERIDAD = Object.freeze({
@@ -33,6 +39,31 @@ export const LIMITES_MEDIBLES = {
   diastolica: [30, 160],
   pulso: [30, 250],
   temperatura: [30, 44],
+  frecuenciaRespiratoria: [4, 90],
+  saturacion: [50, 100],
+};
+
+// ===== Frecuencia respiratoria normal (PALS 2015) =====
+const RANGOS_RESPIRACION = [
+  { hasta: 0, min: 30, max: 53, grupo: 'lactante (menos de 1 año)' },
+  { hasta: 2, min: 22, max: 37, grupo: 'niño de 1 a 2 años' },
+  { hasta: 5, min: 20, max: 28, grupo: 'preescolar (3 a 5 años)' },
+  { hasta: 11, min: 18, max: 25, grupo: 'escolar (6 a 11 años)' },
+  { hasta: 15, min: 12, max: 20, grupo: 'adolescente (12 a 15 años)' },
+  { hasta: Infinity, min: 12, max: 20, grupo: 'adulto' },
+];
+
+export const rangoRespiracion = (edad) => {
+  const e = aNumeroEdad(edad) ?? 30;
+  return RANGOS_RESPIRACION.find((r) => e <= r.hasta);
+};
+
+/** Umbral de "respiración rápida" de la OMS (solo menores de 5 años) */
+const respiracionRapidaOMS = (edadMeses) => {
+  if (edadMeses === null || edadMeses === undefined || edadMeses >= 60) return null;
+  if (edadMeses < 2) return 60;
+  if (edadMeses < 12) return 50;
+  return 40;
 };
 
 // ===== Frecuencia cardiaca normal en reposo (PALS 2015, despierto) =====
@@ -106,7 +137,7 @@ const numero = (valor) => {
  * Revisa que los valores sean medibles (no que sean normales: un valor anormal
  * es válido y genera una alerta). Devuelve { campo: mensaje }.
  */
-export function validarMedicion({ presion, pulso, temperatura }) {
+export function validarMedicion({ presion, pulso, temperatura, frecuenciaRespiratoria, saturacion }) {
   const errores = {};
   const p = leerPresion(presion);
   if (!String(presion).trim()) errores.presion = 'La presión arterial es obligatoria.';
@@ -131,6 +162,17 @@ export function validarMedicion({ presion, pulso, temperatura }) {
   else if (t < LIMITES_MEDIBLES.temperatura[0] || t > LIMITES_MEDIBLES.temperatura[1]) {
     errores.temperatura = `Fuera de lo medible (${LIMITES_MEDIBLES.temperatura.join('-')} °C). Revise el valor.`;
   }
+
+  // Opcionales: solo se validan si se escribió algo
+  const enteroOpcional = (valor, campo, unidad) => {
+    if (valor === undefined || valor === null || !String(valor).trim()) return;
+    const n = numero(valor);
+    const [min, max] = LIMITES_MEDIBLES[campo];
+    if (n === null || !Number.isInteger(n)) errores[campo] = 'Ingrese un número entero.';
+    else if (n < min || n > max) errores[campo] = `Fuera de lo medible (${min}-${max} ${unidad}). Revise el valor.`;
+  };
+  enteroOpcional(frecuenciaRespiratoria, 'frecuenciaRespiratoria', 'rpm');
+  enteroOpcional(saturacion, 'saturacion', '%');
   return errores;
 }
 
@@ -199,17 +241,65 @@ function evaluarPresion(p, edad, sexo) {
   return [];
 }
 
+function evaluarRespiracion(fr, edad, edadMeses) {
+  if (fr === null) return [];
+  const e = aNumeroEdad(edad);
+  const adulto = e !== null && e >= 16;
+  if (adulto) {
+    // NEWS2: ≤ 8 y ≥ 25 son 3 puntos; 21-24, 2 puntos; 9-11, 1 punto
+    if (fr <= 8) return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.CRITICA, 'Bradipnea grave', `Frecuencia respiratoria de ${fr} rpm (8 o menos). Requiere atención inmediata.`)];
+    if (fr >= 25) return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.CRITICA, 'Taquipnea grave', `Frecuencia respiratoria de ${fr} rpm (25 o más). Requiere atención inmediata.`)];
+    if (fr >= 21) return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.ALTA, 'Taquipnea', `Frecuencia respiratoria de ${fr} rpm (normal en adultos: 12-20).`)];
+    if (fr <= 11) return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.MODERADA, 'Frecuencia respiratoria baja', `Frecuencia respiratoria de ${fr} rpm (normal en adultos: 12-20).`)];
+    return [];
+  }
+  const rango = rangoRespiracion(e);
+  const meses = edadMeses ?? (e === null ? null : e * 12);
+  const oms = respiracionRapidaOMS(meses);
+  // PALS: menos de 10 o más de 60 rpm es anormal en un niño de cualquier edad
+  if (fr < 10) {
+    return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.ALTA, 'Bradipnea', `Frecuencia respiratoria de ${fr} rpm (menos de 10). Requiere evaluación.`)];
+  }
+  if (fr < rango.min) {
+    return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.MODERADA, 'Frecuencia respiratoria baja', `Frecuencia respiratoria de ${fr} rpm (normal para ${rango.grupo}: ${rango.min}-${rango.max}).`)];
+  }
+  if (fr > 60) {
+    return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.ALTA, 'Respiración rápida', `Frecuencia respiratoria de ${fr} rpm (más de 60). Requiere evaluación.`)];
+  }
+  if (oms && fr > oms) {
+    return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.ALTA, 'Respiración rápida', `Frecuencia respiratoria de ${fr} rpm (más de ${oms}, criterio de la OMS para la edad). Requiere evaluación.`)];
+  }
+  if (fr > rango.max) {
+    return [hallazgo('frecuenciaRespiratoria', SEVERIDAD.MODERADA, 'Taquipnea', `Frecuencia respiratoria de ${fr} rpm (normal para ${rango.grupo}: ${rango.min}-${rango.max}).`)];
+  }
+  return [];
+}
+
+function evaluarSaturacion(spo2) {
+  if (spo2 === null) return [];
+  const nota = 'En pacientes con EPOC u otra enfermedad respiratoria crónica la meta puede ser menor.';
+  if (spo2 <= 91) return [hallazgo('saturacion', SEVERIDAD.CRITICA, 'Hipoxemia grave', `Saturación de oxígeno de ${spo2}% (91% o menos). Requiere atención inmediata.`)];
+  if (spo2 <= 93) return [hallazgo('saturacion', SEVERIDAD.ALTA, 'Hipoxemia', `Saturación de oxígeno de ${spo2}% (normal: 96% o más). ${nota}`)];
+  if (spo2 <= 95) return [hallazgo('saturacion', SEVERIDAD.MODERADA, 'Saturación baja', `Saturación de oxígeno de ${spo2}% (normal: 96% o más). ${nota}`)];
+  return [];
+}
+
 const ORDEN = { critica: 0, alta: 1, moderada: 2 };
 
 /**
  * Evalúa los signos vitales según la edad y el sexo del paciente.
  * Devuelve la lista de hallazgos anormales, del más al menos urgente.
  */
-export function evaluarSignosVitales({ presion, pulso, temperatura, edad, sexo }) {
+export function evaluarSignosVitales({
+  presion, pulso, temperatura, frecuenciaRespiratoria, saturacion, edad, edadMeses, sexo,
+}) {
+  const opcional = (v) => (v === undefined || v === null || !String(v).trim() ? null : numero(v));
   return [
     ...evaluarPresion(leerPresion(presion), edad, sexo),
     ...evaluarPulso(numero(pulso), edad),
     ...evaluarTemperatura(numero(temperatura), edad),
+    ...evaluarRespiracion(opcional(frecuenciaRespiratoria), edad, edadMeses),
+    ...evaluarSaturacion(opcional(saturacion)),
   ].sort((a, b) => ORDEN[a.severidad] - ORDEN[b.severidad]);
 }
 
@@ -222,10 +312,13 @@ export function referenciasParaEdad(edad, sexo) {
   if (e !== null && e < 1) presion = `Sistólica de 70 o más`;
   else if (cribado) presion = `Entre ${limiteHipotension(e)} y ${cribado[0] - 1} de sistólica, diastólica menor a ${cribado[1]}`;
   else presion = `Sistólica ${limiteHipotension(e)}-119, diastólica menor a 80`;
+  const respiracion = rangoRespiracion(e);
   return {
     presion,
     pulso: `${rango.min}-${rango.max} lpm`,
     temperatura: '35 a 37.4 °C',
+    frecuenciaRespiratoria: `${respiracion.min}-${respiracion.max} rpm`,
+    saturacion: '96% o más',
   };
 }
 
@@ -247,8 +340,8 @@ export const mencionaAlergia = (texto) => {
  * Todas las alertas que genera una toma de signos: las de los signos
  * (tipo 'signos') y, si las observaciones mencionan una alergia, una de tipo 'alergia'.
  */
-export function alertasDeLaToma({ presion, pulso, temperatura, observaciones, edad, sexo }) {
-  const alertas = evaluarSignosVitales({ presion, pulso, temperatura, edad, sexo })
+export function alertasDeLaToma({ observaciones, ...signos }) {
+  const alertas = evaluarSignosVitales(signos)
     .map((h) => ({ tipo: 'signos', ...h }));
   if (mencionaAlergia(observaciones)) {
     alertas.push({
