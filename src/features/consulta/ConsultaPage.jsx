@@ -251,9 +251,13 @@ function ConsultaPage() {
                     <Button
                       variant="secondary"
                       icon={faFilePdf}
-                      onClick={() => {
-                        generarHistorialPDF(paciente, historial, fechaPdf || null);
-                        toast.success('Historial descargado.');
+                      onClick={async () => {
+                        try {
+                          await generarHistorialPDF(paciente, historial, { fecha: fechaPdf || null, odontograma });
+                          toast.success('Historial descargado.');
+                        } catch {
+                          toast.error('No se pudo generar el historial.');
+                        }
                       }}
                     >
                       Descargar historial
@@ -293,10 +297,14 @@ function ConsultaPage() {
           open
           paciente={paciente}
           onClose={() => setReceta(false)}
-          onGenerar={(datosReceta) => {
-            generarRecetaPDF(paciente, datosReceta);
-            toast.success('Receta descargada.');
-            setReceta(false);
+          onGenerar={async (datosReceta) => {
+            try {
+              await generarRecetaPDF(paciente, datosReceta);
+              toast.success('Receta descargada.');
+              setReceta(false);
+            } catch {
+              toast.error('No se pudo generar la receta.');
+            }
           }}
         />
       )}
