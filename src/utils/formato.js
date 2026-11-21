@@ -43,3 +43,15 @@ export const iniciales = (nombre = '') =>
     .slice(0, 2)
     .map((parte) => parte[0].toUpperCase())
     .join('') || '?';
+
+/** Edad legible a partir de la fecha de nacimiento: "5 años", "8 meses" */
+export const edadTexto = (fechaNacimiento) => {
+  const nac = aFecha(fechaNacimiento);
+  if (!nac) return '';
+  const hoy = new Date();
+  let meses = (hoy.getFullYear() - nac.getFullYear()) * 12 + (hoy.getMonth() - nac.getMonth());
+  if (hoy.getDate() < nac.getDate()) meses -= 1;
+  if (meses < 0) return '';
+  if (meses < 24) return `${meses} ${meses === 1 ? 'mes' : 'meses'}`;
+  return `${Math.floor(meses / 12)} años`;
+};

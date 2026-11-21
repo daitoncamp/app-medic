@@ -20,6 +20,7 @@ export const ESTADOS_CITA = Object.freeze({
   EN_CONSULTA: 'En consulta',
   ATENDIDA: 'Atendida',
   NO_ASISTIO: 'No asistió',
+  ANULADA: 'Anulada',
 });
 
 const estructuraInicial = Object.freeze({

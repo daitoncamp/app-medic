@@ -1,13 +1,13 @@
 import { Link, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faPhone, faPrescription, faTooth,
-  faUserSlash,
+  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faHeartPulse, faNotesMedical, faPhone,
+  faPrescription, faTooth, faUserSlash,
 } from '@fortawesome/free-solid-svg-icons';
 import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
-import { useClinica } from '../../hooks/useClinica';
-import { obtenerFichaPaciente } from '../../services/clinica';
-import { formatearFechaHora, iniciales } from '../../utils/formato';
+import { useRecurso } from '../../hooks/useRecurso';
+import { obtenerFicha, TEXTO_ANTECEDENTE } from '../../services/recepcionApi';
+import { edadTexto, formatearFecha, formatearFechaHora, iniciales } from '../../utils/formato';
 import { ESTADOS_DIENTE } from '../consulta/dientes';
 import DocumentosPaciente from './DocumentosPaciente';
 import styles from './Pacientes.module.css';
@@ -23,8 +23,20 @@ const TIPO_EVENTO = {
 /** Ficha única del paciente: todo su historial en una línea de tiempo */
 function FichaPacientePage() {
   const { cedula } = useParams();
-  const datos = useClinica();
-  const ficha = obtenerFichaPaciente(cedula, datos);
+  const { datos: ficha, cargando, error, recargar } = useRecurso(() => obtenerFicha(cedula), [cedula]);
+
+  if (cargando && !ficha) {
+    return <Card><EmptyState compact title="Cargando ficha…" /></Card>;
+  }
+
+  if (error && error.status !== 404) {
+    return (
+      <Card>
+        <EmptyState icon={faCircleExclamation} title="No se pudo cargar la ficha" text={error.message}
+          action={<Button variant="secondary" onClick={recargar}>Reintentar</Button>} />
+      </Card>
+    );
+  }
 
   if (!ficha) {
     return (
@@ -39,7 +51,7 @@ function FichaPacientePage() {
     );
   }
 
-  const { paciente, citas, eventos, alertas, odontograma } = ficha;
+  const { paciente, citas, eventos, alertas, odontograma, antecedentes } = ficha;
   const marcados = Object.values(odontograma);
   const resumenOdontograma = ESTADOS_DIENTE
     .map((e) => ({ ...e, total: marcados.filter((v) => v === e.id).length }))
@@ -58,8 +70,9 @@ function FichaPacientePage() {
             <h1 className={styles.name}>{paciente.nombre}</h1>
             <p className="muted">
               C.I. {paciente.cedula}
-              {paciente.edad && ` · ${paciente.edad} años`}
+              {` · ${edadTexto(paciente.fechaNacimiento)}`}
               {paciente.sexo && ` · ${paciente.sexo}`}
+              {` · Nació el ${formatearFecha(paciente.fechaNacimiento)}`}
             </p>
           </div>
         </div>
@@ -103,6 +116,16 @@ function FichaPacientePage() {
         <div className={styles.sideCol}>
           <DocumentosPaciente ficha={ficha} />
 
+          {antecedentes.length > 0 && (
+            <Card title="Antecedentes médicos" icon={faNotesMedical}>
+              <ul className={styles.antecedentes}>
+                {antecedentes.map((a) => (
+                  <li key={a.id}><strong>{TEXTO_ANTECEDENTE[a.tipo] || a.tipo}:</strong> {a.descripcion}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           {alertas.length > 0 && (
             <Card title="Alertas médicas" icon={faCircleExclamation} iconTone="danger">
               <AlertList compact alertas={alertas} />
@@ -111,7 +134,7 @@ function FichaPacientePage() {
 
           <Card title="Citas" padded={false}>
             <ul className={styles.citas}>
-              {[...citas].reverse().map((c) => (
+              {citas.map((c) => (
                 <li key={c.id}>
                   <span>
                     <strong>{c.consulta}</strong>

@@ -1,26 +1,28 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  faCalendarDay, faCheck, faDownload, faEnvelope, faPen, faPhone, faPlus, faTrash, faUserPlus, faUserXmark,
+  faBan, faCalendarDay, faCheck, faCircleExclamation, faDownload, faEnvelope, faPen, faPhone, faPlus,
+  faUserPlus, faUserXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  Button, Card, EmptyState, EstadoCita, Field, IconButton, PageHeader, SearchInput, Table,
+  Button, Card, EmptyState, EstadoCita, Field, IconButton, Modal, PageHeader, SearchInput, Table,
   useConfirm, useToast,
 } from '../../components/ui';
-import { useClinica } from '../../hooks/useClinica';
+import { useDiferido } from '../../hooks/useDiferido';
+import { useRecurso } from '../../hooks/useRecurso';
+import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
 import {
-  actualizarCita, confirmarCita, eliminarCita, ESTADOS_CITA, fechaLocalISO, marcarNoAsistio,
-  obtenerListaPacientes, registrarNuevaCita, registrarNuevoPaciente,
-} from '../../services/clinica';
+  agendarCita, anularCita, confirmarCita, editarCita, listarCitas, marcarNoAsistio, registrarSinCita,
+} from '../../services/recepcionApi';
 import { formatearFecha } from '../../utils/formato';
 import CitaFormModal from './CitaFormModal';
 import RegistroRapidoModal from './RegistroRapidoModal';
 import styles from './Citas.module.css';
 
 const ESTADOS_ABIERTOS = [ESTADOS_CITA.PENDIENTE, ESTADOS_CITA.CONFIRMADA];
+const ACTUALIZAR_CADA_MS = 30000;
 
 function CitasPage() {
-  const datos = useClinica();
   const toast = useToast();
   const confirmar = useConfirm();
   const location = useLocation();
@@ -31,40 +33,55 @@ function CitasPage() {
   const [estado, setEstado] = useState('');
   // Se abre directo si se llegó desde "Nueva cita" del inicio
   const [modal, setModal] = useState(location.state?.nuevaCita ? { tipo: 'cita' } : null);
+  const [anulando, setAnulando] = useState(null);
 
-  const texto = busqueda.trim().toLowerCase();
-  const citas = datos.citasDelDia
-    .filter((c) => !fecha || c.fecha === fecha)
-    .filter((c) => !estado || c.estado === estado)
-    .filter((c) => !texto || c.paciente.toLowerCase().includes(texto) || c.cedula.includes(texto))
-    .sort((a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`));
+  // Se vuelve a pedir al cambiar los filtros y cada 30 s (para ver lo que hacen otras computadoras)
+  const buscar = useDiferido(busqueda);
+  const { datos: citas, cargando, error, recargar } = useRecurso(
+    () => listarCitas({ fecha: fecha || undefined, todas: !fecha, estado: estado || undefined, buscar }),
+    [fecha, estado, buscar],
+    { intervalo: ACTUALIZAR_CADA_MS, inicial: [] },
+  );
 
   const cerrarModal = () => {
     setModal(null);
     if (location.state?.nuevaCita) navigate('.', { replace: true, state: null });
   };
 
-  const guardarCita = (form) => {
-    const ok = modal.cita
-      ? actualizarCita(modal.cita.id, form)
-      : registrarNuevaCita(form);
-    if (!ok) return toast.error('No se pudo guardar la cita.');
-    const enviada = form.estado === ESTADOS_CITA.CONFIRMADA && !modal.cita?.enEnfermeria;
-    toast.success(modal.cita ? 'Cita actualizada.' : `Cita agendada${enviada ? ' y enviada a enfermería' : ''}.`);
-    if (!modal.cita) setFecha(form.fecha);
+  // Los modales esperan esta promesa: si falla, muestran el error en el formulario
+  const guardarCita = async (form) => {
+    if (modal.cita) {
+      await editarCita(modal.cita.id, form);
+      toast.success('Cita actualizada.');
+    } else {
+      const cita = await agendarCita(form);
+      toast.success(cita.estado === ESTADOS_CITA.CONFIRMADA ? 'Cita registrada y enviada a enfermería.' : 'Cita agendada.');
+      setFecha(cita.fecha);
+    }
     cerrarModal();
+    recargar();
   };
 
-  const guardarRegistro = (form) => {
-    if (!registrarNuevoPaciente(form)) return toast.error('No se pudo registrar al paciente.');
-    toast.success(`${form.nombre} pasó a la sala de espera de enfermería.`);
+  const guardarRegistro = async (form) => {
+    const cita = await registrarSinCita(form);
+    toast.success(`${cita.paciente} pasó a la sala de espera de enfermería.`);
     setFecha(fechaLocalISO());
     cerrarModal();
+    recargar();
   };
 
-  const alConfirmar = (cita) => {
-    if (confirmarCita(cita.id)) toast.success(`${cita.paciente} pasó a la sala de espera de enfermería.`);
+  const ejecutar = async (accion, mensaje) => {
+    try {
+      await accion();
+      toast.success(mensaje);
+      recargar();
+    } catch (e) {
+      toast.error(e.message);
+      recargar();
+    }
   };
+
+  const alConfirmar = (cita) => ejecutar(() => confirmarCita(cita.id), `${cita.paciente} pasó a la sala de espera de enfermería.`);
 
   const alNoAsistir = async (cita) => {
     const ok = await confirmar({
@@ -72,17 +89,7 @@ function CitasPage() {
       message: `${cita.paciente} · ${formatearFecha(cita.fecha)} ${cita.hora}. Saldrá de la sala de espera si estaba en ella.`,
       confirmText: 'Marcar',
     });
-    if (ok && marcarNoAsistio(cita.id)) toast.info('Cita marcada como no asistió.');
-  };
-
-  const alEliminar = async (cita) => {
-    const ok = await confirmar({
-      title: '¿Eliminar la cita?',
-      message: `${cita.paciente} · ${formatearFecha(cita.fecha)} ${cita.hora}. Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
-      danger: true,
-    });
-    if (ok && eliminarCita(cita.id)) toast.success('Cita eliminada.');
+    if (ok) ejecutar(() => marcarNoAsistio(cita.id), 'Cita marcada como no asistió.');
   };
 
   const descargarReporte = () => {
@@ -90,8 +97,7 @@ function CitasPage() {
       generado: new Date().toISOString(),
       filtro: { fecha: fecha || 'todas', estado: estado || 'todos', busqueda },
       total: citas.length,
-      citas,
-      pacientes: obtenerListaPacientes(datos),
+      citas: citas.map(({ datosPaciente, ...c }) => ({ ...c, fechaNacimiento: datosPaciente?.fechaNacimiento })),
     };
     const url = URL.createObjectURL(new Blob([JSON.stringify(reporte, null, 2)], { type: 'application/json' }));
     const enlace = document.createElement('a');
@@ -114,38 +120,73 @@ function CitasPage() {
       render: (c) => (
         <div className={styles.patient}>
           <Link to={`/pacientes/${c.cedula}`} className={styles.patientName}>{c.paciente}</Link>
-          <span className={styles.patientId}>{c.cedula}</span>
+          <span className={styles.patientId}>{c.cedula}{c.edad !== undefined && ` · ${c.edad} años`}</span>
         </div>
       ),
     },
     { key: 'consulta', header: 'Consulta' },
-    { key: 'estado', header: 'Estado', render: (c) => <EstadoCita estado={c.estado} /> },
+    {
+      key: 'estado',
+      header: 'Estado',
+      render: (c) => (
+        <span title={c.motivoAnulacion ? `Motivo: ${c.motivoAnulacion}` : undefined}>
+          <EstadoCita estado={c.estado} />
+        </span>
+      ),
+    },
     {
       key: 'acciones',
       header: 'Acciones',
       className: 'actions',
-      render: (c) => (
-        <div className={styles.actions}>
-          {c.estado === ESTADOS_CITA.PENDIENTE && (
-            <IconButton icon={faCheck} label="Confirmar y enviar a enfermería" onClick={() => alConfirmar(c)} className={styles.confirm} />
-          )}
-          {ESTADOS_ABIERTOS.includes(c.estado) && (
-            <IconButton icon={faUserXmark} label="Marcar como no asistió" onClick={() => alNoAsistir(c)} />
-          )}
-          <IconButton icon={faPen} label="Editar cita" onClick={() => setModal({ tipo: 'cita', cita: c })} />
-          <IconButton as="a" href={`tel:${c.telefono}`} icon={faPhone} label={`Llamar al ${c.telefono}`} />
-          <IconButton as="a" href={`mailto:${c.email}`} icon={faEnvelope} label={`Escribir a ${c.email}`} />
-          <IconButton icon={faTrash} label="Eliminar cita" onClick={() => alEliminar(c)} className={styles.delete} />
-        </div>
-      ),
+      render: (c) => {
+        const abierta = ESTADOS_ABIERTOS.includes(c.estado);
+        return (
+          <div className={styles.actions}>
+            {c.estado === ESTADOS_CITA.PENDIENTE && (
+              <IconButton icon={faCheck} label="El paciente llegó: enviar a enfermería" onClick={() => alConfirmar(c)} className={styles.confirm} />
+            )}
+            {abierta && <IconButton icon={faUserXmark} label="Marcar como no asistió" onClick={() => alNoAsistir(c)} />}
+            {abierta && <IconButton icon={faPen} label="Editar cita" onClick={() => setModal({ tipo: 'cita', cita: c })} />}
+            {c.telefono && <IconButton as="a" href={`tel:${c.telefono}`} icon={faPhone} label={`Llamar al ${c.telefono}`} />}
+            {c.email && <IconButton as="a" href={`mailto:${c.email}`} icon={faEnvelope} label={`Escribir a ${c.email}`} />}
+            {abierta && <IconButton icon={faBan} label="Anular cita" onClick={() => setAnulando(c)} className={styles.delete} />}
+          </div>
+        );
+      },
     },
   ];
+
+  let contenido;
+  if (error && !citas.length) {
+    contenido = (
+      <EmptyState icon={faCircleExclamation} title="No se pudieron cargar las citas" text={error.message}
+        action={<Button variant="secondary" onClick={recargar}>Reintentar</Button>} />
+    );
+  } else if (cargando && !citas.length) {
+    contenido = <EmptyState compact title="Cargando citas…" />;
+  } else {
+    contenido = (
+      <Table
+        caption="Citas"
+        columns={columnas}
+        rows={citas}
+        empty={(
+          <EmptyState
+            icon={faCalendarDay}
+            title={busqueda || estado ? 'Ninguna cita coincide con el filtro' : 'No hay citas para esta fecha'}
+            text="Cambia el filtro o agenda una nueva cita."
+            action={<Button icon={faPlus} onClick={() => setModal({ tipo: 'cita' })}>Nueva cita</Button>}
+          />
+        )}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Citas"
-        subtitle="Agenda, confirma y da seguimiento a las citas."
+        subtitle="Agenda, confirma la llegada y da seguimiento a las citas."
         actions={(
           <>
             <Button variant="secondary" icon={faUserPlus} onClick={() => setModal({ tipo: 'registro' })}>Registro rápido</Button>
@@ -167,20 +208,7 @@ function CitasPage() {
             <IconButton icon={faDownload} label="Descargar reporte (JSON)" variant="secondary" onClick={descargarReporte} />
           </div>
         </div>
-
-        <Table
-          caption="Citas"
-          columns={columnas}
-          rows={citas}
-          empty={(
-            <EmptyState
-              icon={faCalendarDay}
-              title={busqueda || estado ? 'Ninguna cita coincide con el filtro' : 'No hay citas para esta fecha'}
-              text="Cambia el filtro o agenda una nueva cita."
-              action={<Button icon={faPlus} onClick={() => setModal({ tipo: 'cita' })}>Nueva cita</Button>}
-            />
-          )}
-        />
+        {contenido}
         {citas.length > 0 && <p className={styles.count}>{citas.length} {citas.length === 1 ? 'cita' : 'citas'}</p>}
       </Card>
 
@@ -190,7 +218,68 @@ function CitasPage() {
       {modal?.tipo === 'registro' && (
         <RegistroRapidoModal open onClose={cerrarModal} onGuardar={guardarRegistro} />
       )}
+      {anulando && (
+        <AnularModal
+          cita={anulando}
+          onClose={() => setAnulando(null)}
+          onAnular={async (motivo) => {
+            await anularCita(anulando.id, motivo);
+            toast.success('Cita anulada. Queda en el historial con el motivo.');
+            setAnulando(null);
+            recargar();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** Las citas no se borran: se anulan indicando el motivo */
+function AnularModal({ cita, onClose, onAnular }) {
+  const [motivo, setMotivo] = useState('');
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  const enviar = async (e) => {
+    e.preventDefault();
+    if (motivo.trim().length < 5) {
+      setError('Describe el motivo (mínimo 5 caracteres).');
+      return;
+    }
+    setGuardando(true);
+    try {
+      await onAnular(motivo.trim());
+    } catch (err) {
+      setError(err.detalles?.motivo || err.message);
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Anular cita"
+      description={`${cita.paciente} · ${formatearFecha(cita.fecha)} ${cita.hora}. La cita no se borra: queda en el historial como anulada.`}
+      size="sm"
+      footer={(
+        <>
+          <Button variant="secondary" onClick={onClose}>Volver</Button>
+          <Button type="submit" form="form-anular" variant="danger" disabled={guardando}>{guardando ? 'Anulando…' : 'Anular cita'}</Button>
+        </>
+      )}
+    >
+      <form id="form-anular" onSubmit={enviar} noValidate>
+        <Field
+          as="textarea"
+          label="Motivo"
+          placeholder="Ej.: el paciente pidió reprogramar"
+          value={motivo}
+          onChange={(e) => { setMotivo(e.target.value); setError(''); }}
+          error={error}
+        />
+      </form>
+    </Modal>
   );
 }
 

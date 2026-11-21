@@ -63,14 +63,32 @@ export const validarFormulario = (valores, reglas) => {
   return errores;
 };
 
-// Reglas reutilizadas por varios formularios
+const validarParteNombre = (campo) => (valor) => {
+  const v = String(valor).trim();
+  if (v.length < 2) return `${campo}: mínimo 2 letras.`;
+  if (!/^[a-zA-ZÁÉÍÓÚáéíóúÜüñÑ' ]+$/.test(v)) return 'Solo se permiten letras y espacios.';
+  return '';
+};
+
+export const validarFechaNacimiento = (valor) => {
+  const fecha = new Date(`${valor}T12:00:00`);
+  if (Number.isNaN(fecha.getTime())) return 'Fecha inválida.';
+  if (fecha > new Date()) return 'No puede ser una fecha futura.';
+  if (fecha.getFullYear() < new Date().getFullYear() - 120) return 'Revise el año.';
+  return '';
+};
+
+const opcional = (validar) => (valor) => (String(valor ?? '').trim() ? validar(valor) : '');
+
+// Reglas del paciente (las mismas que valida el servidor)
 export const reglasPaciente = {
   cedula: [requerido, validarCedula],
-  nombre: [requerido, validarNombre],
+  nombres: [requerido, validarParteNombre('Nombres')],
+  apellidos: [requerido, validarParteNombre('Apellidos')],
+  fechaNacimiento: [requerido, validarFechaNacimiento],
   sexo: [(v) => requerido(v, 'Seleccione una opción.')],
-  edad: [requerido, validarEdad],
   telefono: [requerido, validarTelefono],
-  correo: [requerido, validarEmail],
+  correo: [opcional(validarEmail)],
 };
 
 /** Mismas reglas que exige el servidor para una contraseña nueva */

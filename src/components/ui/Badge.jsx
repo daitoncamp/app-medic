@@ -12,6 +12,7 @@ const TONO_ESTADO = {
   'En consulta': 'purple',
   Atendida: 'success',
   'No asistió': 'danger',
+  Anulada: 'neutral',
 };
 
 export function EstadoCita({ estado }) {

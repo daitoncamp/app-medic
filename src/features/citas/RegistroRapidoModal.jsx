@@ -1,27 +1,53 @@
 import { useState } from 'react';
-import { Button, Field, FieldRow, Modal } from '../../components/ui';
+import { Button, Modal } from '../../components/ui';
+import { buscarPacientePorCedula, erroresDeFormulario } from '../../services/recepcionApi';
 import { reglasPaciente, validarFormulario } from '../../utils/validaciones';
+import CamposPaciente from './CamposPaciente';
+import { PACIENTE_VACIO, pacienteAFormulario } from './paciente';
 import styles from './Citas.module.css';
 
-const VACIO = { cedula: '', nombre: '', sexo: '', edad: '', telefono: '', correo: '' };
-
-/** Paciente que llega sin cita: se registra y pasa directo a enfermería */
+/** Paciente que llega sin cita: se registra y pasa directo a la sala de espera */
 function RegistroRapidoModal({ open, onClose, onGuardar }) {
-  const [form, setForm] = useState(VACIO);
+  const [form, setForm] = useState(PACIENTE_VACIO);
   const [errores, setErrores] = useState({});
+  const [errorGeneral, setErrorGeneral] = useState('');
+  const [aviso, setAviso] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   const cambiar = (campo) => (e) => {
-    const valor = campo === 'cedula' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
-    setForm((f) => ({ ...f, [campo]: valor }));
+    setForm((f) => ({ ...f, [campo]: e.target.value }));
     if (errores[campo]) setErrores((er) => ({ ...er, [campo]: '' }));
+    if (campo === 'cedula') setAviso('');
   };
 
-  const enviar = (e) => {
+  const alCompletarCedula = async (cedula) => {
+    try {
+      const existente = await buscarPacientePorCedula(cedula);
+      if (existente) {
+        setForm(pacienteAFormulario(existente));
+        setErrores({});
+        setAviso(`Paciente encontrado: ${existente.nombre}.`);
+      }
+    } catch {
+      // se llena a mano
+    }
+  };
+
+  const enviar = async (e) => {
     e.preventDefault();
     const nuevos = validarFormulario(form, reglasPaciente);
     setErrores(nuevos);
+    setErrorGeneral('');
     if (Object.keys(nuevos).length) return;
-    onGuardar({ ...form, nombre: form.nombre.trim(), correo: form.correo.trim() });
+    setGuardando(true);
+    try {
+      await onGuardar(form);
+    } catch (error) {
+      const porCampo = erroresDeFormulario(error);
+      if (Object.keys(porCampo).length) setErrores(porCampo);
+      else setErrorGeneral(error.message);
+      setGuardando(false);
+    }
   };
 
   return (
@@ -29,32 +55,18 @@ function RegistroRapidoModal({ open, onClose, onGuardar }) {
       open={open}
       onClose={onClose}
       title="Registro rápido"
-      description="Para pacientes que llegan sin cita. Se crea una revisión para ahora y pasa a enfermería."
+      description="Para pacientes que llegan sin cita. Se crea una revisión para ahora y pasa a la sala de espera de enfermería."
+      size="lg"
       footer={(
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-registro">Registrar y enviar</Button>
+          <Button type="submit" form="form-registro" disabled={guardando}>{guardando ? 'Registrando…' : 'Registrar y enviar'}</Button>
         </>
       )}
     >
       <form id="form-registro" className={styles.form} onSubmit={enviar} noValidate>
-        <FieldRow>
-          <Field label="Cédula" inputMode="numeric" placeholder="10 dígitos" value={form.cedula} onChange={cambiar('cedula')} error={errores.cedula} />
-          <Field label="Nombre completo" value={form.nombre} onChange={cambiar('nombre')} error={errores.nombre} />
-        </FieldRow>
-        <FieldRow>
-          <Field as="select" label="Sexo" value={form.sexo} onChange={cambiar('sexo')} error={errores.sexo}>
-            <option value="">Seleccione…</option>
-            <option>Femenino</option>
-            <option>Masculino</option>
-            <option>Otro</option>
-          </Field>
-          <Field label="Edad" type="number" min="0" max="120" value={form.edad} onChange={cambiar('edad')} error={errores.edad} />
-        </FieldRow>
-        <FieldRow>
-          <Field label="Teléfono" inputMode="tel" placeholder="09xxxxxxxx" value={form.telefono} onChange={cambiar('telefono')} error={errores.telefono} />
-          <Field label="Correo" type="email" value={form.correo} onChange={cambiar('correo')} error={errores.correo} />
-        </FieldRow>
+        {errorGeneral && <p className={styles.formError} role="alert">{errorGeneral}</p>}
+        <CamposPaciente form={form} errores={errores} cambiar={cambiar} onCedula={alCompletarCedula} avisoCedula={aviso} />
       </form>
     </Modal>
   );

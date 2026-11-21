@@ -1,40 +1,35 @@
 import { useState } from 'react';
 import { Button, Field, FieldRow, Modal } from '../../components/ui';
-import { ESTADOS_CITA, fechaLocalISO, obtenerListaPacientes } from '../../services/clinica';
-import {
-  requerido, reglasPaciente, validarFormulario,
-} from '../../utils/validaciones';
+import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
+import { buscarPacientePorCedula, erroresDeFormulario } from '../../services/recepcionApi';
+import { requerido, reglasPaciente, validarFormulario } from '../../utils/validaciones';
+import CamposPaciente from './CamposPaciente';
+import { PACIENTE_VACIO, pacienteAFormulario } from './paciente';
 import styles from './Citas.module.css';
 
 const TIPOS_CONSULTA = ['Revisión', 'Limpieza dental', 'Extracción', 'Endodoncia', 'Ortodoncia', 'Resina', 'Corona'];
 
-const VACIO = {
-  cedula: '', paciente: '', fecha: '', hora: '', consulta: '',
-  sexo: '', edad: '', telefono: '', email: '', estado: ESTADOS_CITA.PENDIENTE,
-};
-
-// Mismas reglas del paciente, con los nombres de campo de la cita
-const REGLAS_CITA = {
-  cedula: reglasPaciente.cedula,
-  paciente: reglasPaciente.nombre,
-  sexo: reglasPaciente.sexo,
-  edad: reglasPaciente.edad,
-  telefono: reglasPaciente.telefono,
-  email: reglasPaciente.correo,
-  fecha: [requerido, (v) => (!v || v >= fechaLocalISO() ? '' : 'La fecha no puede ser anterior a hoy.')],
+const reglasCita = (editando) => ({
+  ...reglasPaciente,
+  fecha: [requerido, (v) => (editando || !v || v >= fechaLocalISO() ? '' : 'La fecha no puede ser anterior a hoy.')],
   hora: [requerido],
   consulta: [(v) => requerido(v, 'Seleccione el tipo de consulta.')],
-};
+});
 
 /**
- * Formulario para agendar o editar una cita.
- * Si la cédula ya existe, completa los datos del paciente.
+ * Agendar o editar una cita. Si la cédula ya existe, completa los datos del paciente.
+ * onGuardar(form) devuelve una promesa; si la API rechaza los datos, los errores se
+ * muestran en cada campo.
  */
 function CitaFormModal({ open, cita, onClose, onGuardar }) {
   const editando = Boolean(cita);
-  const [form, setForm] = useState(() => (cita ? { ...VACIO, ...cita } : { ...VACIO, fecha: fechaLocalISO() }));
+  const [form, setForm] = useState(() => (cita
+    ? { ...PACIENTE_VACIO, ...pacienteAFormulario(cita.datosPaciente || {}), fecha: cita.fecha, hora: cita.hora, consulta: cita.consulta, estado: cita.estado }
+    : { ...PACIENTE_VACIO, fecha: fechaLocalISO(), hora: '', consulta: '', estado: ESTADOS_CITA.PENDIENTE }));
   const [errores, setErrores] = useState({});
-  const [autocompletado, setAutocompletado] = useState(false);
+  const [errorGeneral, setErrorGeneral] = useState('');
+  const [aviso, setAviso] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   const cambiar = (campo) => (e) => {
     const valor = e.target.type === 'checkbox'
@@ -42,39 +37,40 @@ function CitaFormModal({ open, cita, onClose, onGuardar }) {
       : e.target.value;
     setForm((f) => ({ ...f, [campo]: valor }));
     if (errores[campo]) setErrores((er) => ({ ...er, [campo]: '' }));
+    if (campo === 'cedula') setAviso('');
   };
 
-  // Al completar los 10 dígitos de la cédula, busca al paciente
-  const cambiarCedula = (e) => {
-    const cedula = e.target.value.replace(/\D/g, '').slice(0, 10);
-    setForm((f) => ({ ...f, cedula }));
-    setAutocompletado(false);
-    if (cedula.length === 10 && !editando) {
-      const existente = obtenerListaPacientes().find((p) => p.cedula === cedula);
+  // Al completar la cédula se buscan los datos del paciente en el servidor
+  const alCompletarCedula = async (cedula) => {
+    if (editando) return;
+    try {
+      const existente = await buscarPacientePorCedula(cedula);
       if (existente) {
-        setForm((f) => ({
-          ...f,
-          paciente: existente.nombre || '',
-          sexo: existente.sexo || '',
-          edad: String(existente.edad || ''),
-          telefono: existente.telefono || '',
-          email: existente.correo || '',
-        }));
+        setForm((f) => ({ ...f, ...pacienteAFormulario(existente) }));
         setErrores({});
-        setAutocompletado(true);
+        setAviso(`Paciente encontrado: ${existente.nombre}. Datos completados.`);
       }
+    } catch {
+      // Si falla la búsqueda se llenan los datos a mano
     }
   };
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault();
-    const reglas = editando
-      ? { ...REGLAS_CITA, fecha: [requerido] } // al editar se permiten fechas pasadas
-      : REGLAS_CITA;
-    const nuevos = validarFormulario(form, reglas);
+    const nuevos = validarFormulario(form, reglasCita(editando));
     setErrores(nuevos);
+    setErrorGeneral('');
     if (Object.keys(nuevos).length) return;
-    onGuardar({ ...form, paciente: form.paciente.trim(), email: form.email.trim() });
+    setGuardando(true);
+    try {
+      await onGuardar(form);
+    } catch (error) {
+      const porCampo = erroresDeFormulario(error);
+      if (Object.keys(porCampo).length) setErrores(porCampo);
+      else if (error.status === 409) setErrores({ hora: error.message });
+      else setErrorGeneral(error.message);
+      setGuardando(false);
+    }
   };
 
   const puedeConfirmar = !editando || cita.estado === ESTADOS_CITA.PENDIENTE;
@@ -89,55 +85,37 @@ function CitaFormModal({ open, cita, onClose, onGuardar }) {
       footer={(
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-cita">{editando ? 'Guardar cambios' : 'Agendar cita'}</Button>
+          <Button type="submit" form="form-cita" disabled={guardando}>
+            {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Agendar cita'}
+          </Button>
         </>
       )}
     >
       <form id="form-cita" className={styles.form} onSubmit={enviar} noValidate>
+        {errorGeneral && <p className={styles.formError} role="alert">{errorGeneral}</p>}
+
         <fieldset className={styles.fieldset}>
           <legend>Paciente</legend>
-          <FieldRow>
-            <Field
-              label="Cédula"
-              inputMode="numeric"
-              placeholder="10 dígitos"
-              value={form.cedula}
-              onChange={cambiarCedula}
-              error={errores.cedula}
-              hint={autocompletado ? 'Paciente encontrado: datos completados.' : undefined}
-            />
-            <Field label="Nombre completo" value={form.paciente} onChange={cambiar('paciente')} error={errores.paciente} />
-          </FieldRow>
-          <FieldRow columns={3}>
-            <Field as="select" label="Sexo" value={form.sexo} onChange={cambiar('sexo')} error={errores.sexo}>
-              <option value="">Seleccione…</option>
-              <option>Femenino</option>
-              <option>Masculino</option>
-              <option>Otro</option>
-            </Field>
-            <Field label="Edad" type="number" min="0" max="120" value={form.edad} onChange={cambiar('edad')} error={errores.edad} />
-            <Field label="Teléfono" inputMode="tel" placeholder="09xxxxxxxx" value={form.telefono} onChange={cambiar('telefono')} error={errores.telefono} />
-          </FieldRow>
-          <Field label="Correo" type="email" placeholder="correo@ejemplo.com" value={form.email} onChange={cambiar('email')} error={errores.email} />
+          <CamposPaciente form={form} errores={errores} cambiar={cambiar} onCedula={alCompletarCedula} avisoCedula={aviso} />
         </fieldset>
 
         <fieldset className={styles.fieldset}>
           <legend>Cita</legend>
           <FieldRow columns={3}>
-            <Field label="Fecha" type="date" value={form.fecha} onChange={cambiar('fecha')} error={errores.fecha} />
-            <Field label="Hora" type="time" value={form.hora} onChange={cambiar('hora')} error={errores.hora} />
+            <Field label="Fecha" type="date" min={editando ? undefined : fechaLocalISO()} value={form.fecha} onChange={cambiar('fecha')} error={errores.fecha} />
+            <Field label="Hora" type="time" step="900" value={form.hora} onChange={cambiar('hora')} error={errores.hora} />
             <Field as="select" label="Tipo de consulta" value={form.consulta} onChange={cambiar('consulta')} error={errores.consulta}>
               <option value="">Seleccione…</option>
               {TIPOS_CONSULTA.map((t) => <option key={t}>{t}</option>)}
             </Field>
           </FieldRow>
 
-          {puedeConfirmar && (
+          {puedeConfirmar && !editando && (
             <label className={styles.check}>
               <input type="checkbox" checked={form.estado === ESTADOS_CITA.CONFIRMADA} onChange={cambiar('estado')} />
               <span>
-                <strong>Confirmar ahora y enviar a enfermería</strong>
-                <span className={styles.checkHint}>Déjalo sin marcar si el paciente aún no confirma su asistencia.</span>
+                <strong>El paciente ya llegó: enviar a enfermería</strong>
+                <span className={styles.checkHint}>Déjalo sin marcar para una cita futura; la confirmas cuando el paciente llegue.</span>
               </span>
             </label>
           )}

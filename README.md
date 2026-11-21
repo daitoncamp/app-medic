@@ -85,8 +85,8 @@ src/
 
 ## Estado actual
 
-- **Sin base de datos todavía.** Los datos se guardan en el `localStorage` del navegador. Si abres la app en dos pestañas, se sincronizan solas, pero cada computadora tiene sus propios datos.
-- **Usuarios y sesión ya están en el servidor.** Los datos clínicos (citas, signos, consultas) todavía usan `localStorage` hasta la fase 3.
+- **En el servidor (PostgreSQL):** usuarios y sesión, pacientes, citas, ficha del paciente y panel de recepción y administración.
+- **Todavía en `localStorage`:** enfermería (sala de espera y signos vitales) y consulta odontológica. Pasan a la API en las partes 3.2 y 3.3; mientras tanto, las citas agendadas en recepción no aparecen en la sala de espera de enfermería.
 
 ## Backend
 
@@ -97,20 +97,9 @@ Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
-3. API de citas, pacientes, signos vitales, consulta y documentos, y conexión del frontend
+3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales, 3.3 consulta, odontograma y recetas
 4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
 5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
 6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript
-
-## Conectar el backend
-
-La app está preparada para que el cambio toque pocos archivos:
-
-1. `services/authService.js`: reemplazar `iniciarSesion`, `listarUsuarios`, `crearUsuario` y `cambiarEstadoUsuario` por llamadas a la API. El servidor debe devolver el rol del usuario dentro del token.
-2. `services/clinica.js`: convertir cada función en una llamada a la API (`registrarNuevaCita`, `confirmarCita`, `registrarSignosVitales`, `registrarDiagnostico`, `finalizarConsulta`, etc.).
-3. `hooks/useClinica.js`: pedir los datos a la API y escuchar cambios en tiempo real (WebSocket o consultas periódicas).
-4. `utils/validaciones.js` son funciones puras: se pueden copiar tal cual al backend si es Node.
-
-Tablas sugeridas: `usuarios`, `pacientes`, `citas` (con estado: Pendiente, Confirmada, En consulta, Atendida, No asistió), `signos_vitales`, `diagnosticos`, `odontogramas` y `alertas_medicas`.
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.

@@ -18,6 +18,9 @@ const PERMISOS_DOCUMENTOS = {
   emitirReceta: [ROLES.ODONTOLOGA],
 };
 
+// Emitir recetas desde la ficha vuelve en la fase 3.3, cuando la consulta use la API
+const EMITIR_DESDE_FICHA = false;
+
 /** Datos del paciente en el formato que esperan los PDF */
 const pacienteParaPDF = (ficha) => {
   const { paciente, citas, alertas, ultimosSignos } = ficha;
@@ -49,7 +52,7 @@ function DocumentosPaciente({ ficha }) {
   if (!PERMISOS_DOCUMENTOS.descargar.includes(rol)) return null;
 
   const paciente = pacienteParaPDF(ficha);
-  const puedeEmitir = PERMISOS_DOCUMENTOS.emitirReceta.includes(rol);
+  const puedeEmitir = EMITIR_DESDE_FICHA && PERMISOS_DOCUMENTOS.emitirReceta.includes(rol);
 
   const ejecutar = async (clave, accion, mensaje) => {
     setGenerando(clave);

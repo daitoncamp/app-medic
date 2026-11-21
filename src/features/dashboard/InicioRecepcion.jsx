@@ -5,14 +5,15 @@ import {
 import {
   BarChart, Button, Card, EmptyState, EstadoCita, PageHeader, StatCard, StatGrid,
 } from '../../components/ui';
-import { useClinica } from '../../hooks/useClinica';
-import { ESTADOS_CITA } from '../../services/clinica';
-import { agendaPorHora, citasDeHoy, contarPorEstado } from './metricas';
+import { useRecurso } from '../../hooks/useRecurso';
+import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
+import { listarCitas } from '../../services/recepcionApi';
+import { agendaPorHora, contarPorEstado } from './metricas';
 import styles from './Dashboard.module.css';
 
 function InicioRecepcion({ sesion }) {
-  const datos = useClinica();
-  const citas = citasDeHoy(datos);
+  // Citas de hoy desde la API, actualizadas cada 30 s
+  const { datos: citas } = useRecurso(() => listarCitas({ fecha: fechaLocalISO() }), [], { intervalo: 30000, inicial: [] });
   const estados = contarPorEstado(citas);
   const proximas = citas.filter((c) => [ESTADOS_CITA.PENDIENTE, ESTADOS_CITA.CONFIRMADA].includes(c.estado));
 
