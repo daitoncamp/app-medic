@@ -80,6 +80,18 @@ Para generar una `JWT_SECRET` segura:
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
+### Actualizar a la fase 3.1 (pacientes y citas)
+
+```powershell
+git pull
+cd backend
+npm run db:migrate -- --name busqueda_pacientes
+npm run db:seed
+```
+
+La migración agrega la columna `textoBusqueda` (búsqueda sin tildes: "macias" encuentra "Macías").
+El seed vuelve a cargar los datos de prueba con esa columna llena.
+
 ## Usuarios de prueba
 
 La contraseña es la de `SEED_PASSWORD` en tu `.env` (por defecto `Clinica2026!`).
@@ -106,6 +118,17 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/usuarios` | Admin | `{ nombre, email, rol, password }`. La contraseña es temporal |
 | `PATCH /api/usuarios/:id` | Admin | `{ activo }` para activar o desactivar |
 | `POST /api/usuarios/:id/restablecer-password` | Admin | `{ password }` temporal; también desbloquea |
+| `GET /api/pacientes?buscar=&limite=` | Con sesión | Busca por nombre o cédula (sin importar tildes) |
+| `GET /api/pacientes/:cedula` | Con sesión | Ficha: datos, antecedentes, alertas, odontograma, citas, diagnósticos y recetas. Queda auditado |
+| `POST /api/pacientes` | Recepción, Admin | Crea o actualiza un paciente por cédula |
+| `PATCH /api/pacientes/:cedula` | Recepción, Admin | Edita datos del paciente |
+| `GET /api/citas?fecha=&desde=&hasta=&todas=1&estado=&buscar=` | Con sesión | Lista de citas (por defecto, las de hoy) |
+| `POST /api/citas` | Recepción, Admin | `{ paciente, fecha, hora, tipoConsulta, confirmar }`. Rechaza fechas pasadas y horarios ocupados (409) |
+| `POST /api/citas/sin-cita` | Recepción, Admin | Paciente que llega sin cita: queda confirmado para enfermería |
+| `PATCH /api/citas/:id` | Recepción, Admin | Cambia fecha, hora o tipo (solo pendientes o confirmadas) |
+| `POST /api/citas/:id/confirmar` | Recepción, Admin | El paciente llegó |
+| `POST /api/citas/:id/no-asistio` | Recepción, Admin | Marca la inasistencia |
+| `POST /api/citas/:id/anular` | Recepción, Admin | `{ motivo }`. Las citas no se borran: quedan anuladas con motivo y usuario |
 
 ### Seguridad
 
@@ -114,7 +137,8 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 - En cada petición se vuelve a consultar al usuario: si se desactiva o cambia de rol, aplica al instante.
 - **5 intentos fallidos** seguidos bloquean el usuario **15 minutos**.
 - Un usuario con contraseña temporal solo puede cambiarla; el resto de rutas responde 403.
-- Cada inicio de sesión (correcto o fallido), cierre y cambio queda en la tabla `auditoria`.
+- Cada inicio de sesión (correcto o fallido), cierre y cambio queda en la tabla `auditoria`, igual que cada ficha consultada y cada cita creada, editada o anulada.
+- Las fechas se guardan en UTC y se interpretan en hora de Ecuador (UTC-5).
 
 ## Scripts
 

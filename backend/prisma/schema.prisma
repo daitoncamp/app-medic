@@ -156,6 +156,8 @@ model Paciente {
   /// Persona a avisar en una emergencia
   contactoEmergenciaNombre   String?
   contactoEmergenciaTelefono String? @db.VarChar(15)
+  /// Cédula, nombres y apellidos en minúsculas y sin tildes, para buscar "macias" y encontrar "Macías"
+  textoBusqueda   String    @default("")
   creadoEn        DateTime  @default(now())
   actualizadoEn   DateTime  @updatedAt
 
@@ -166,6 +168,7 @@ model Paciente {
   recetas         Receta[]
 
   @@index([apellidos, nombres])
+  @@index([textoBusqueda])
   @@map("pacientes")
 }
 

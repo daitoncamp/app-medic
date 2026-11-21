@@ -41,6 +41,10 @@ async function limpiar() {
   await prisma.usuario.deleteMany();
 }
 
+// Igual que en src/routes/pacientes.js
+const normalizar = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const conBusqueda = (data) => ({ ...data, textoBusqueda: normalizar(`${data.cedula} ${data.nombres} ${data.apellidos}`) });
+
 async function main() {
   await limpiar();
   const passwordHash = await bcrypt.hash(PASSWORD, 12);
@@ -56,25 +60,25 @@ async function main() {
 
   // ===== Pacientes (edades variadas para probar las alertas) =====
   const [mateo, rosa, luis, sofia] = await Promise.all([
-    prisma.paciente.create({ data: {
+    prisma.paciente.create({ data: conBusqueda({
       cedula: '1312345678', nombres: 'Mateo Andrés', apellidos: 'Vera Zambrano',
       fechaNacimiento: new Date('2021-03-14'), sexo: 'MASCULINO', telefono: '0991234567',
       correo: 'familia.vera@mail.com',
       contactoEmergenciaNombre: 'Carla Zambrano (madre)', contactoEmergenciaTelefono: '0991234568',
-    } }),
-    prisma.paciente.create({ data: {
+    }) }),
+    prisma.paciente.create({ data: conBusqueda({
       cedula: '1309876543', nombres: 'Rosa Elena', apellidos: 'Macías Cedeño',
       fechaNacimiento: new Date('1954-08-02'), sexo: 'FEMENINO', telefono: '0987654321', correo: 'rosa.macias@mail.com',
-    } }),
-    prisma.paciente.create({ data: {
+    }) }),
+    prisma.paciente.create({ data: conBusqueda({
       cedula: '1305556667', nombres: 'Luis Fernando', apellidos: 'Pico Alcívar',
       fechaNacimiento: new Date('1990-11-20'), sexo: 'MASCULINO', telefono: '0993334445', correo: 'luis.pico@mail.com',
-    } }),
-    prisma.paciente.create({ data: {
+    }) }),
+    prisma.paciente.create({ data: conBusqueda({
       cedula: '1311122233', nombres: 'Sofía Valentina', apellidos: 'Mendoza Loor',
       fechaNacimiento: new Date('2025-06-10'), sexo: 'FEMENINO', telefono: '0998887776',
       contactoEmergenciaNombre: 'Jorge Mendoza (padre)', contactoEmergenciaTelefono: '0998887777',
-    } }),
+    }) }),
   ]);
 
   // ===== Antecedentes =====
