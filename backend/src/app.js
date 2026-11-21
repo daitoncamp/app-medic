@@ -10,6 +10,7 @@ import { autenticar, requierePasswordDefinitiva } from './middlewares/auth.js';
 import { manejarErrores, rutaNoEncontrada } from './middlewares/errores.js';
 import { rutasAuth } from './routes/auth.js';
 import { rutasCitas } from './routes/citas.js';
+import { rutasEnfermeria } from './routes/enfermeria.js';
 import { rutasPacientes } from './routes/pacientes.js';
 import { rutasSalud } from './routes/salud.js';
 import { rutasUsuarios } from './routes/usuarios.js';
@@ -34,6 +35,7 @@ const protegida = [autenticar, requierePasswordDefinitiva];
 app.use('/api/usuarios', ...protegida, rutasUsuarios);
 app.use('/api/pacientes', ...protegida, rutasPacientes);
 app.use('/api/citas', ...protegida, rutasCitas);
+app.use('/api/enfermeria', ...protegida, rutasEnfermeria);
 
 app.use(rutaNoEncontrada);
 app.use(manejarErrores);

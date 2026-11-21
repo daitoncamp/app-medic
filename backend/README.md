@@ -92,6 +92,10 @@ npm run db:seed
 La migración agrega la columna `textoBusqueda` (búsqueda sin tildes: "macias" encuentra "Macías").
 El seed vuelve a cargar los datos de prueba con esa columna llena.
 
+### Actualizar a la fase 3.2 (enfermería)
+
+No hay migración nueva: basta con `git pull` y reiniciar `npm run dev` en `backend`.
+
 ## Usuarios de prueba
 
 La contraseña es la de `SEED_PASSWORD` en tu `.env` (por defecto `Clinica2026!`).
@@ -129,6 +133,17 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/citas/:id/confirmar` | Recepción, Admin | El paciente llegó |
 | `POST /api/citas/:id/no-asistio` | Recepción, Admin | Marca la inasistencia |
 | `POST /api/citas/:id/anular` | Recepción, Admin | `{ motivo }`. Las citas no se borran: quedan anuladas con motivo y usuario |
+| `GET /api/enfermeria/sala` | Enfermería, Odontología, Admin | Sala de espera (con alergias y antecedentes), preparados, alertas de hoy, últimas tomas y métricas |
+| `POST /api/enfermeria/citas/:id/signos` | Enfermería, Admin | `{ presion: "120/80", pulso, temperatura, observaciones }`. Evalúa según la edad, crea las alertas y pasa la cita a preparada. 409 si otra persona ya lo registró |
+
+### Signos vitales y alertas
+
+Las reglas están en [`shared/signosVitales.js`](../shared/signosVitales.js), en la raíz del repositorio.
+El formulario las usa para la vista previa y la API para guardar, así que las dos siempre coinciden.
+La edad se calcula en el servidor con la fecha de nacimiento del paciente; no se confía en la que envíe el navegador.
+Las observaciones que mencionan una alergia crean una alerta, salvo frases que la niegan ("niega alergias", "sin alergias conocidas").
+
+Por esa carpeta compartida, si algún día armas una imagen de Docker del backend, el contexto de construcción debe ser la raíz del repositorio.
 
 ### Seguridad
 
