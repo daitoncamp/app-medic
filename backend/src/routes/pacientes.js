@@ -11,7 +11,7 @@ import { conflicto, noEncontrado } from '../lib/errores.js';
 import { fechaLocal } from '../lib/fechas.js';
 import { esquemaPaciente } from '../lib/esquemas.js';
 import { prisma } from '../lib/prisma.js';
-import { citaPublica, pacienteResumen } from '../lib/serializar.js';
+import { citaPublica, pacienteResumen, recetaPublica } from '../lib/serializar.js';
 import { validar } from '../lib/validar.js';
 import { requiereRol } from '../middlewares/auth.js';
 
@@ -104,7 +104,10 @@ rutasPacientes.get('/:cedula', async (req, res) => {
         include: {
           signosVitales: true,
           diagnosticos: { orderBy: { creadoEn: 'asc' } },
-          recetas: { include: { medicamentos: { orderBy: { orden: 'asc' } } }, orderBy: { creadoEn: 'desc' } },
+          recetas: {
+            include: { medicamentos: { orderBy: { orden: 'asc' } }, odontologo: { select: { nombre: true } } },
+            orderBy: { creadoEn: 'desc' },
+          },
         },
       },
     },
@@ -141,10 +144,7 @@ rutasPacientes.get('/:cedula', async (req, res) => {
         id: d.id, piezas: d.piezas, procedimiento: d.procedimiento, descripcion: d.descripcion,
         notas: d.notas, estado: d.estado, creadoEn: d.creadoEn,
       })),
-      recetas: c.recetas.map((r) => ({
-        id: r.id, numero: r.numero, indicaciones: r.indicaciones, creadoEn: r.creadoEn, anuladaEn: r.anuladaEn,
-        medicamentos: r.medicamentos.map(({ medicamento, dosis, frecuencia, duracion }) => ({ medicamento, dosis, frecuencia, duracion })),
-      })),
+      recetas: c.recetas.map(recetaPublica),
     })),
   });
 });

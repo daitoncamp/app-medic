@@ -43,3 +43,30 @@ export const esquemaPaciente = z.object({
 });
 
 export const TIPOS_CONSULTA = ['Revisión', 'Limpieza dental', 'Extracción', 'Endodoncia', 'Ortodoncia', 'Resina', 'Corona'];
+
+// ==================== CONSULTA ODONTOLÓGICA ====================
+
+export const PROCEDIMIENTOS = ['Limpieza', 'Extracción', 'Resina', 'Corona', 'Endodoncia', 'Ortodoncia', 'Revisión'];
+
+/** Piezas válidas en numeración FDI (permanentes 11-48, temporales 51-85) */
+export const esPiezaFDI = (n) => {
+  const cuadrante = Math.floor(n / 10);
+  const posicion = n % 10;
+  if (cuadrante >= 1 && cuadrante <= 4) return posicion >= 1 && posicion <= 8;
+  if (cuadrante >= 5 && cuadrante <= 8) return posicion >= 1 && posicion <= 5;
+  return false;
+};
+
+export const esquemaPieza = z.coerce.number().int().refine(esPiezaFDI, 'Pieza dental inválida (numeración FDI).');
+
+/** "16, 26" o [16, 26] → [16, 26] sin repetidos */
+export const esquemaPiezas = z
+  .union([z.string(), z.array(z.union([z.string(), z.number()]))])
+  .transform((v) => (Array.isArray(v) ? v : v.split(',')).map((p) => String(p).trim()).filter(Boolean))
+  .pipe(z.array(z.string().regex(/^\d{2}$/, 'Use números de 2 dígitos separados por comas (ej.: 11, 26).'))
+    .min(1, 'Indica al menos una pieza.')
+    .max(32, 'Demasiadas piezas.'))
+  .transform((v) => [...new Set(v.map(Number))])
+  .refine((v) => v.every(esPiezaFDI), (v) => ({
+    message: `Pieza inválida: ${v.filter((n) => !esPiezaFDI(n)).join(', ')}. Use numeración FDI (11-48 o 51-85).`,
+  }));
