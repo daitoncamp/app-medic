@@ -1,0 +1,18 @@
+# Base de datos para desarrollo: `npm run db:up`
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: clinica-dental-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clinica
+      POSTGRES_PASSWORD: clinica_dev
+      POSTGRES_DB: clinica_dental
+      TZ: America/Guayaquil
+    ports:
+      - "5432:5432"
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+
+volumes:
+  datos_postgres:

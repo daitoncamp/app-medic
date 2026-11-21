@@ -79,6 +79,20 @@ src/
 - **Sin base de datos todavía.** Los datos se guardan en el `localStorage` del navegador. Si abres la app en dos pestañas, se sincronizan solas, pero cada computadora tiene sus propios datos.
 - **Autenticación de demostración.** Las rutas están protegidas por rol, pero la validación ocurre en el navegador.
 
+## Backend
+
+El servidor está en la carpeta [`backend/`](backend/README.md) (Node.js + Express + PostgreSQL + Prisma).
+Sus instrucciones de instalación están en su propio README.
+
+Plan de trabajo:
+
+1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
+2. Autenticación con contraseñas cifradas, token con el rol y permisos en el servidor
+3. API de citas, pacientes, signos vitales, consulta y documentos, y conexión del frontend
+4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
+5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
+6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript
+
 ## Conectar el backend
 
 La app está preparada para que el cambio toque pocos archivos:
