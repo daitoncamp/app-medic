@@ -130,6 +130,13 @@
 .userName {
   font-size: var(--text-sm);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user button {
+  flex-shrink: 0;
 }
 
 .userEmail {

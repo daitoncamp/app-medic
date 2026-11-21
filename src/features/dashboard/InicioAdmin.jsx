@@ -24,7 +24,7 @@ function InicioAdmin({ sesion }) {
   const [usuarios, setUsuarios] = useState([]);
 
   useEffect(() => {
-    const cargar = () => listarUsuarios().then(setUsuarios);
+    const cargar = () => listarUsuarios().then(setUsuarios).catch(() => setUsuarios([]));
     cargar();
     window.addEventListener(EVENTO_USUARIOS, cargar);
     return () => window.removeEventListener(EVENTO_USUARIOS, cargar);

@@ -72,3 +72,13 @@ export const reglasPaciente = {
   telefono: [requerido, validarTelefono],
   correo: [requerido, validarEmail],
 };
+
+/** Mismas reglas que exige el servidor para una contraseña nueva */
+export const validarPasswordNueva = (valor) => {
+  const v = String(valor);
+  if (v.length < 8) return 'Mínimo 8 caracteres.';
+  if (v.length > 72) return 'Máximo 72 caracteres.';
+  if (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(v)) return 'Debe tener al menos una letra.';
+  if (!/\d/.test(v)) return 'Debe tener al menos un número.';
+  return '';
+};

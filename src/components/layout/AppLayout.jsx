@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faRightFromBracket, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faKey, faRightFromBracket, faXmark } from '@fortawesome/free-solid-svg-icons';
 import logoUleam from '../../assets/logo-uleam.png';
 import { cerrarSesion, NOMBRE_ROL, obtenerSesion } from '../../services/authService';
 import { fechaLarga, iniciales } from '../../utils/formato';
@@ -36,7 +36,7 @@ function AppLayout() {
       confirmText: 'Cerrar sesión',
     });
     if (ok) {
-      cerrarSesion();
+      await cerrarSesion();
       navigate('/login', { replace: true });
     }
   };
@@ -80,6 +80,7 @@ function AppLayout() {
             <p className={styles.userName}>{sesion.nombre}</p>
             <p className={styles.userEmail}>{sesion.email}</p>
           </div>
+          <IconButton icon={faKey} label="Cambiar contraseña" onClick={() => navigate('/cambiar-password')} />
           <IconButton icon={faRightFromBracket} label="Cerrar sesión" onClick={salir} />
         </div>
       </aside>

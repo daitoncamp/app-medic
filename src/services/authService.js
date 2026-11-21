@@ -1,18 +1,15 @@
 // ==================== SERVICIO DE AUTENTICACIÓN Y USUARIOS ====================
-// Único lugar donde vive la lógica de login, sesión y usuarios.
+// Habla con la API (/api/auth y /api/usuarios). Las contraseñas se validan y
+// guardan cifradas en el servidor; el navegador nunca ve el token de sesión
+// (viaja en una cookie httpOnly).
 //
-// ⚠️ MODO DEMO: los usuarios se guardan en localStorage y las claves en texto
-// plano. Sirve para probar la app sin backend. En producción:
-//   - iniciarSesion() llamará a POST /auth/login y el servidor devolverá
-//     un token con el rol del usuario.
-//   - listarUsuarios(), crearUsuario() y cambiarEstadoUsuario() llamarán
-//     a la API de usuarios (solo para administradores).
-// El resto de la app no tiene que cambiar.
+// En sessionStorage solo se guarda una copia de los datos del usuario para que
+// la interfaz pueda leerla al instante (nombre, rol). La API vuelve a verificar
+// la sesión en cada petición.
 
-import { generarId } from './clinica';
+import { api } from './api';
 
 const SESION_KEY = 'sesion';
-const USUARIOS_KEY = 'usuariosDemo';
 export const EVENTO_USUARIOS = 'usuariosUpdate';
 
 export const ROLES = Object.freeze({
@@ -22,7 +19,7 @@ export const ROLES = Object.freeze({
   ODONTOLOGA: 'Odontologa',
 });
 
-// Texto que se muestra en pantalla (los valores de ROLES se guardan sin tilde)
+// Texto que se muestra en pantalla
 export const NOMBRE_ROL = Object.freeze({
   [ROLES.ADMIN]: 'Administración',
   [ROLES.RECEPCIONISTA]: 'Recepción',
@@ -30,101 +27,31 @@ export const NOMBRE_ROL = Object.freeze({
   [ROLES.ODONTOLOGA]: 'Odontología',
 });
 
-const USUARIOS_INICIALES = [
-  { nombre: 'Administrador', email: 'admin@live.uleam.edu.ec', rol: ROLES.ADMIN },
-  { nombre: 'Recepcionista', email: 'recepcionista@live.uleam.edu.ec', rol: ROLES.RECEPCIONISTA },
-  { nombre: 'Enfermera', email: 'enfermera@live.uleam.edu.ec', rol: ROLES.ENFERMERA },
-  { nombre: 'Odontóloga', email: 'odontologa@live.uleam.edu.ec', rol: ROLES.ODONTOLOGA },
-].map((u) => ({ ...u, id: `usr_${u.rol}`, pass: '1234', activo: true, creado: null }));
-
-// ==================== USUARIOS ====================
-
-const leerUsuarios = () => {
-  try {
-    const guardados = JSON.parse(localStorage.getItem(USUARIOS_KEY));
-    if (Array.isArray(guardados) && guardados.length) return guardados;
-  } catch {
-    // datos corruptos: se vuelve a los iniciales
-  }
-  return structuredClone(USUARIOS_INICIALES);
+// El backend usa ADMIN, RECEPCIONISTA…; la app usa los valores de ROLES
+const DESDE_API = {
+  ADMIN: ROLES.ADMIN,
+  RECEPCIONISTA: ROLES.RECEPCIONISTA,
+  ENFERMERA: ROLES.ENFERMERA,
+  ODONTOLOGA: ROLES.ODONTOLOGA,
 };
+const HACIA_API = Object.fromEntries(Object.entries(DESDE_API).map(([api, app]) => [app, api]));
 
-const guardarUsuarios = (usuarios) => {
-  localStorage.setItem(USUARIOS_KEY, JSON.stringify(usuarios));
-  window.dispatchEvent(new CustomEvent(EVENTO_USUARIOS));
-};
-
-// La clave nunca sale de este archivo
-const sinClave = (usuario) => {
-  const copia = { ...usuario };
-  delete copia.pass;
-  return copia;
-};
-
-export async function listarUsuarios() {
-  return leerUsuarios().map(sinClave);
-}
-
-export async function crearUsuario({ nombre, email, rol, pass }) {
-  const usuarios = leerUsuarios();
-  const correo = email.trim().toLowerCase();
-  if (usuarios.some((u) => u.email === correo)) {
-    throw new Error('Ya existe un usuario con ese correo.');
-  }
-  const nuevo = {
-    id: generarId('usr'),
-    nombre: nombre.trim(),
-    email: correo,
-    rol,
-    pass,
-    activo: true,
-    creado: new Date().toISOString(),
-  };
-  guardarUsuarios([...usuarios, nuevo]);
-  return sinClave(nuevo);
-}
-
-export async function cambiarEstadoUsuario(id, activo) {
-  const usuarios = leerUsuarios();
-  const usuario = usuarios.find((u) => u.id === id);
-  if (!usuario) throw new Error('Usuario no encontrado.');
-  const adminsActivos = usuarios.filter((u) => u.rol === ROLES.ADMIN && u.activo).length;
-  if (usuario.rol === ROLES.ADMIN && !activo && adminsActivos === 1) {
-    throw new Error('Debe quedar al menos un administrador activo.');
-  }
-  usuario.activo = activo;
-  guardarUsuarios(usuarios);
-}
+const adaptarUsuario = (u) => ({ ...u, rol: DESDE_API[u.rol] || u.rol });
 
 // ==================== SESIÓN ====================
 
-/**
- * Valida las credenciales. El rol lo decide el sistema, no el usuario.
- * Devuelve la sesión creada o lanza un Error con un mensaje para mostrar.
- */
-export async function iniciarSesion(email, password) {
-  const correo = email.trim().toLowerCase();
-  const usuario = leerUsuarios().find((u) => u.email === correo);
-
-  if (!usuario || usuario.pass !== password) {
-    throw new Error('Correo o contraseña incorrectos.');
-  }
-  if (!usuario.activo) {
-    throw new Error('Tu usuario está desactivado. Contacta al administrador.');
-  }
-
-  const sesion = {
-    id: usuario.id,
-    email: usuario.email,
-    nombre: usuario.nombre,
-    rol: usuario.rol,
-    inicio: new Date().toISOString(),
-  };
+const guardarSesion = (usuario) => {
+  const sesion = adaptarUsuario(usuario);
   sessionStorage.setItem(SESION_KEY, JSON.stringify(sesion));
-  sessionStorage.setItem('mostrarBienvenida', 'true');
   return sesion;
-}
+};
 
+const borrarSesion = () => {
+  sessionStorage.removeItem(SESION_KEY);
+  sessionStorage.removeItem('mostrarBienvenida');
+};
+
+/** Lee la copia local de la sesión (lectura inmediata para la interfaz) */
 export function obtenerSesion() {
   try {
     const sesion = JSON.parse(sessionStorage.getItem(SESION_KEY));
@@ -134,6 +61,78 @@ export function obtenerSesion() {
   }
 }
 
-export function cerrarSesion() {
-  sessionStorage.clear();
+/**
+ * Inicia sesión. El rol lo decide el servidor.
+ * Lanza un Error con el mensaje para mostrar si algo falla.
+ */
+export async function iniciarSesion(email, password) {
+  const { usuario } = await api('/auth/login', {
+    method: 'POST',
+    body: { email: email.trim(), password },
+    avisarSiExpira: false,
+  });
+  sessionStorage.setItem('mostrarBienvenida', 'true');
+  return guardarSesion(usuario);
+}
+
+/**
+ * Pregunta al servidor si la cookie de sesión sigue siendo válida.
+ * Se llama al abrir la app. Devuelve la sesión o null.
+ */
+export async function verificarSesion() {
+  try {
+    const { usuario } = await api('/auth/yo', { avisarSiExpira: false });
+    return guardarSesion(usuario);
+  } catch {
+    borrarSesion();
+    return null;
+  }
+}
+
+export async function cerrarSesion() {
+  try {
+    await api('/auth/logout', { method: 'POST', avisarSiExpira: false });
+  } catch {
+    // Aunque el servidor no responda, la sesión local se borra
+  } finally {
+    borrarSesion();
+  }
+}
+
+/** Borra la copia local sin llamar al servidor (sesión vencida) */
+export const olvidarSesion = borrarSesion;
+
+export async function cambiarPassword(actual, nueva) {
+  const { usuario } = await api('/auth/cambiar-password', { method: 'POST', body: { actual, nueva } });
+  return guardarSesion(usuario);
+}
+
+// ==================== USUARIOS (administración) ====================
+
+const avisarCambioUsuarios = () => window.dispatchEvent(new CustomEvent(EVENTO_USUARIOS));
+
+export async function listarUsuarios() {
+  const { usuarios } = await api('/usuarios');
+  return usuarios.map(adaptarUsuario);
+}
+
+export async function crearUsuario({ nombre, email, rol, password }) {
+  const { usuario } = await api('/usuarios', {
+    method: 'POST',
+    body: { nombre, email, rol: HACIA_API[rol], password },
+  });
+  avisarCambioUsuarios();
+  return adaptarUsuario(usuario);
+}
+
+export async function cambiarEstadoUsuario(id, activo) {
+  const { usuario } = await api(`/usuarios/${id}`, { method: 'PATCH', body: { activo } });
+  avisarCambioUsuarios();
+  return adaptarUsuario(usuario);
+}
+
+export async function restablecerPassword(id, password) {
+  const { usuario } = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password } });
+  avisarCambioUsuarios();
+  return adaptarUsuario(usuario);
 }

@@ -16,7 +16,9 @@ const ETAPAS = [
   { icon: faTooth, titulo: 'Odontología', texto: 'Diagnostica y trata', color: 'purple' },
 ];
 
-// Usuarios de prueba (se quitan junto con el modo demo de authService.js)
+// Usuarios que crea el seed del backend. Solo se muestran en desarrollo (npm run dev).
+const MOSTRAR_DEMO = import.meta.env.DEV;
+const PASSWORD_DEMO = 'Clinica2026!';
 const USUARIOS_DEMO = [
   ['Recepción', 'recepcionista@live.uleam.edu.ec'],
   ['Enfermería', 'enfermera@live.uleam.edu.ec'],
@@ -32,6 +34,7 @@ function LoginPage() {
   const [verClave, setVerClave] = useState(false);
   const [errores, setErrores] = useState({});
   const [errorGeneral, setErrorGeneral] = useState('');
+  const sesionExpirada = new URLSearchParams(window.location.search).has('expirada');
   const [cargando, setCargando] = useState(false);
 
   if (obtenerSesion()) return <Navigate to="/inicio" replace />;
@@ -59,7 +62,7 @@ function LoginPage() {
 
   const usarDemo = (correo) => {
     setEmail(correo);
-    setPassword('1234');
+    setPassword(PASSWORD_DEMO);
     setErrores({});
     setErrorGeneral('');
   };
@@ -95,6 +98,12 @@ function LoginPage() {
           <img src={logoUleam} alt="" className={styles.logoMobile} />
           <h2 className={styles.title}>Iniciar sesión</h2>
           <p className={styles.subtitle}>Ingresa con tu correo institucional.</p>
+
+          {sesionExpirada && !errorGeneral && (
+            <div className={styles.info} role="status">
+              Tu sesión terminó. Vuelve a iniciar sesión para continuar.
+            </div>
+          )}
 
           {errorGeneral && (
             <div className={styles.alert} role="alert">
@@ -137,9 +146,13 @@ function LoginPage() {
             {cargando ? 'Ingresando…' : 'Ingresar'}
           </Button>
 
+          {MOSTRAR_DEMO && (
           <details className={styles.demo}>
-            <summary>Usuarios de prueba</summary>
-            <p className={styles.demoNote}>Contraseña: <code>1234</code>. Toca uno para rellenar el formulario.</p>
+            <summary>Usuarios de prueba (solo en desarrollo)</summary>
+            <p className={styles.demoNote}>
+              Contraseña: <code>{PASSWORD_DEMO}</code> (la de <code>SEED_PASSWORD</code> en el .env del backend).
+              Toca uno para rellenar el formulario.
+            </p>
             <div className={styles.demoList}>
               {USUARIOS_DEMO.map(([rol, correo]) => (
                 <button key={correo} type="button" className={styles.demoItem} onClick={() => usarDemo(correo)}>
@@ -149,6 +162,7 @@ function LoginPage() {
               ))}
             </div>
           </details>
+          )}
         </form>
       </section>
     </div>

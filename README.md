@@ -18,9 +18,17 @@ Todos los roles tienen una pantalla de **Inicio** con las métricas de su día y
 
 ## Cómo ejecutarlo
 
+El login usa la API, así que primero hay que encender el backend (ver [backend/README.md](backend/README.md)).
+Usa dos ventanas de PowerShell:
+
 ```bash
+# Ventana 1: API
+cd backend
+npm run dev       # http://localhost:3000
+
+# Ventana 2: frontend
 npm install
-npm run dev       # servidor de desarrollo en http://localhost:5173
+npm run dev       # http://localhost:5173 (las llamadas a /api pasan al backend)
 npm run build     # compilación de producción en dist/
 npm run preview   # sirve la compilación localmente
 npm run lint      # revisa el código con ESLint
@@ -28,16 +36,17 @@ npm run lint      # revisa el código con ESLint
 
 ## Usuarios de demostración
 
-Hay un solo inicio de sesión: el sistema sabe qué rol tiene cada usuario y lo lleva a su panel.
+Hay un solo inicio de sesión: el servidor sabe qué rol tiene cada usuario y lo lleva a su panel.
+Los crea el seed del backend (`npm run db:seed`) con la contraseña de `SEED_PASSWORD` (por defecto `Clinica2026!`).
 
-| Rol | Correo | Clave |
-| --- | --- | --- |
-| Recepción | recepcionista@live.uleam.edu.ec | 1234 |
-| Enfermería | enfermera@live.uleam.edu.ec | 1234 |
-| Odontología | odontologa@live.uleam.edu.ec | 1234 |
-| Administración | admin@live.uleam.edu.ec | 1234 |
+| Rol | Correo |
+| --- | --- |
+| Recepción | recepcionista@live.uleam.edu.ec |
+| Enfermería | enfermera@live.uleam.edu.ec |
+| Odontología | odontologa@live.uleam.edu.ec |
+| Administración | admin@live.uleam.edu.ec |
 
-> Son solo para pruebas locales. Viven en `src/services/authService.js` y se eliminan al conectar el backend.
+Los usuarios que crea el administrador reciben una contraseña temporal y deben cambiarla en su primer ingreso.
 
 ## Estructura
 
@@ -77,7 +86,7 @@ src/
 ## Estado actual
 
 - **Sin base de datos todavía.** Los datos se guardan en el `localStorage` del navegador. Si abres la app en dos pestañas, se sincronizan solas, pero cada computadora tiene sus propios datos.
-- **Autenticación de demostración.** Las rutas están protegidas por rol, pero la validación ocurre en el navegador.
+- **Usuarios y sesión ya están en el servidor.** Los datos clínicos (citas, signos, consultas) todavía usan `localStorage` hasta la fase 3.
 
 ## Backend
 
@@ -87,7 +96,7 @@ Sus instrucciones de instalación están en su propio README.
 Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
-2. Autenticación con contraseñas cifradas, token con el rol y permisos en el servidor
+2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
 3. API de citas, pacientes, signos vitales, consulta y documentos, y conexión del frontend
 4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
 5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
