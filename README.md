@@ -85,8 +85,8 @@ src/
 
 ## Estado actual
 
-- **En el servidor (PostgreSQL):** usuarios y sesión, pacientes, citas, ficha del paciente y panel de recepción y administración.
-- **Todavía en `localStorage`:** enfermería (sala de espera y signos vitales) y consulta odontológica. Pasan a la API en las partes 3.2 y 3.3; mientras tanto, las citas agendadas en recepción no aparecen en la sala de espera de enfermería.
+- **En el servidor (PostgreSQL):** usuarios y sesión, pacientes, citas, ficha del paciente, sala de espera, signos vitales y alertas médicas, y los paneles de recepción, enfermería y administración.
+- **Todavía en `localStorage`:** la consulta odontológica (diagnósticos, odontograma y recetas). Pasa a la API en la parte 3.3; mientras tanto, los pacientes que prepara enfermería no aparecen en la pantalla de odontología.
 
 ## Backend
 
@@ -97,7 +97,7 @@ Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
-3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales, 3.3 consulta, odontograma y recetas
+3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales (hecho), 3.3 consulta, odontograma y recetas
 4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
 5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
 6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript

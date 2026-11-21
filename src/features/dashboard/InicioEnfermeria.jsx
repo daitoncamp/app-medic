@@ -3,18 +3,19 @@ import {
   faCircleExclamation, faHourglassHalf, faUserCheck, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import { AlertList, Button, Card, EmptyState, PageHeader, StatCard, StatGrid } from '../../components/ui';
-import { useClinica } from '../../hooks/useClinica';
-import { alertasDeHoy, minutosDesde, preparadosHoy, tiempoPromedioEspera } from './metricas';
+import { useRecurso } from '../../hooks/useRecurso';
+import { obtenerSala } from '../../services/enfermeriaApi';
+import { minutosDesde } from './metricas';
 import styles from './Dashboard.module.css';
 
 const ESPERA_LARGA = 20; // minutos
 
 function InicioEnfermeria({ sesion }) {
-  const datos = useClinica();
-  const cola = [...datos.pacientesEnEspera].sort((a, b) =>
-    String(a.fechaLlegada).localeCompare(String(b.fechaLlegada)));
-  const promedio = tiempoPromedioEspera(datos);
-  const alertas = alertasDeHoy(datos);
+  const { datos, error } = useRecurso(obtenerSala, [], { intervalo: 30000 });
+  const cola = datos?.enEspera || [];
+  const promedio = datos?.metricas.esperaPromedioMin ?? null;
+  const alertas = datos?.alertasHoy || [];
+  const valor = (v) => (datos ? v : '…');
 
   return (
     <div className={styles.layout}>
@@ -25,16 +26,16 @@ function InicioEnfermeria({ sesion }) {
       />
 
       <StatGrid>
-        <StatCard icon={faUsers} label="En espera" value={cola.length} />
+        <StatCard icon={faUsers} label="En espera" value={valor(cola.length)} />
         <StatCard
           icon={faHourglassHalf}
           label="Espera promedio hoy"
-          value={promedio === null ? '—' : `${promedio} min`}
+          value={valor(promedio === null ? '—' : `${promedio} min`)}
           hint="Desde la llegada hasta los signos vitales"
           tone="warning"
         />
-        <StatCard icon={faUserCheck} label="Preparados hoy" value={preparadosHoy(datos)} tone="success" />
-        <StatCard icon={faCircleExclamation} label="Alertas de hoy" value={alertas.length} tone="danger" />
+        <StatCard icon={faUserCheck} label="Preparados hoy" value={valor(datos?.metricas.preparadosHoy)} tone="success" />
+        <StatCard icon={faCircleExclamation} label="Alertas de hoy" value={valor(alertas.length)} tone="danger" />
       </StatGrid>
 
       <div className={styles.split}>
@@ -42,7 +43,7 @@ function InicioEnfermeria({ sesion }) {
           {cola.length ? (
             <ul className={styles.list}>
               {cola.map((p, i) => {
-                const minutos = minutosDesde(p.fechaLlegada);
+                const minutos = minutosDesde(p.llegadaEn);
                 return (
                   <li key={p.id} className={styles.item}>
                     <span className={styles.time}>{i + 1}.</span>
@@ -60,7 +61,12 @@ function InicioEnfermeria({ sesion }) {
               })}
             </ul>
           ) : (
-            <EmptyState compact icon={faUsers} title="Sala de espera vacía" text="Cuando recepción confirme una cita, el paciente aparecerá aquí." />
+            <EmptyState
+              compact
+              icon={faUsers}
+              title={error ? 'No se pudo cargar la sala de espera' : 'Sala de espera vacía'}
+              text={error ? error.message : 'Cuando recepción confirme una cita, el paciente aparecerá aquí.'}
+            />
           )}
         </Card>
 

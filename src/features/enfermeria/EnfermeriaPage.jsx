@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   faCircleExclamation, faClipboardList, faEye, faHeartPulse, faStethoscope, faUsers,
@@ -6,44 +6,67 @@ import {
 import {
   AlertList, Badge, Button, Card, EmptyState, Modal, PageHeader, SearchInput, Table, Tabs, useToast,
 } from '../../components/ui';
-import { useClinica } from '../../hooks/useClinica';
-import { alertasDeVisita, registrarSignosVitales } from '../../services/clinica';
-import { evaluarSignosVitales } from '../../utils/signosVitales';
+import { useRecurso } from '../../hooks/useRecurso';
+import { obtenerSala, registrarSignos } from '../../services/enfermeriaApi';
 import { formatearFechaHora } from '../../utils/formato';
-import { alertasDeHoy, minutosDesde } from '../dashboard/metricas';
+import { mencionaAlergia } from '../../utils/signosVitales';
+import { minutosDesde } from '../dashboard/metricas';
 import SignosVitalesForm from './SignosVitalesForm';
 import styles from './Enfermeria.module.css';
 
+const SALA_VACIA = { enEspera: [], preparados: [], alertasHoy: [], ultimasAtenciones: [], metricas: {} };
+const ESPERA_LARGA = 20; // minutos
+
+const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 function EnfermeriaPage() {
-  const datos = useClinica();
   const toast = useToast();
   const [pestana, setPestana] = useState('espera');
   const [busqueda, setBusqueda] = useState('');
-  const [seleccionado, setSeleccionado] = useState(null);
+  const [seleccionadoId, setSeleccionadoId] = useState(null);
   const [detalle, setDetalle] = useState(null);
+  const formularioRef = useRef(null);
 
-  const texto = busqueda.trim().toLowerCase();
-  const filtrar = (lista) => lista.filter((p) => !texto || p.paciente.toLowerCase().includes(texto) || p.cedula?.includes(texto));
-  const enEspera = filtrar([...datos.pacientesEnEspera].sort((a, b) => String(a.fechaLlegada).localeCompare(String(b.fechaLlegada))));
-  const preparados = filtrar(datos.pacientesPreparados);
-  const alertas = alertasDeHoy(datos);
-  const historial = [...datos.historialAtenciones].reverse().slice(0, 10);
+  const tomarSignos = (id) => {
+    setSeleccionadoId(id);
+    // En pantallas angostas el formulario queda debajo de la lista
+    if (window.matchMedia('(max-width: 1100px)').matches) {
+      formularioRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Se actualiza cada 15 s para ver a los pacientes que confirma recepción
+  const { datos, cargando, error, recargar } = useRecurso(obtenerSala, [], { intervalo: 15000, inicial: SALA_VACIA });
+  const sala = datos || SALA_VACIA;
+
+  const texto = normalizar(busqueda.trim());
+  const filtrar = (lista) => lista.filter((p) => !texto || normalizar(p.paciente).includes(texto) || p.cedula?.includes(texto));
+  const enEspera = filtrar(sala.enEspera);
+  const preparados = filtrar(sala.preparados);
 
   // Si el paciente seleccionado ya no está en espera (lo atendió otra persona), se deselecciona
-  const actual = seleccionado && datos.pacientesEnEspera.find((p) => p.id === seleccionado.id);
+  const actual = seleccionadoId && sala.enEspera.find((p) => p.id === seleccionadoId);
 
-  const guardar = (signos) => {
-    const totalAlertas = evaluarSignosVitales({ ...signos, edad: actual.edad, sexo: actual.sexo }).length
-      + (/alerg/i.test(signos.observaciones) ? 1 : 0);
-    if (registrarSignosVitales(actual, signos)) {
-      if (totalAlertas) {
-        toast.info(`${actual.paciente} pasó a odontología con ${totalAlertas} ${totalAlertas === 1 ? 'alerta médica' : 'alertas médicas'}.`, 6000);
+  const guardar = async (signos) => {
+    try {
+      const { alertas } = await registrarSignos(actual.id, signos);
+      if (alertas.length) {
+        toast.info(`${actual.paciente} pasó a odontología con ${alertas.length} ${alertas.length === 1 ? 'alerta médica' : 'alertas médicas'}.`, 6000);
       } else {
         toast.success(`${actual.paciente} está listo para odontología.`);
       }
-      setSeleccionado(null);
-    } else {
-      toast.error('No se pudieron guardar los signos vitales.');
+      setSeleccionadoId(null);
+      recargar();
+    } catch (e) {
+      if (e.status === 409) {
+        // Otra enfermera ya lo registró: se refresca la sala
+        toast.error(e.message);
+        setSeleccionadoId(null);
+        recargar();
+        return;
+      }
+      if (!e.detalles) toast.error(e.message || 'No se pudieron guardar los signos vitales.');
+      throw e; // el formulario muestra los errores por campo
     }
   };
 
@@ -52,15 +75,20 @@ function EnfermeriaPage() {
     {
       key: 'paciente',
       header: 'Paciente',
-      render: (p) => <Link to={`/pacientes/${p.cedula}`} className={styles.link}>{p.paciente}</Link>,
+      render: (p) => (
+        <>
+          <Link to={`/pacientes/${p.cedula}`} className={styles.link}>{p.paciente}</Link>
+          {p.antecedentes.some((a) => a.tipo === 'ALERGIA') && <> <Badge tone="danger">Alergia</Badge></>}
+        </>
+      ),
     },
     { key: 'consulta', header: 'Consulta' },
     {
       key: 'espera',
       header: 'Esperando',
       render: (p) => {
-        const min = minutosDesde(p.fechaLlegada);
-        return min === null ? '—' : <Badge tone={min >= 20 ? 'danger' : 'neutral'}>{min} min</Badge>;
+        const min = minutosDesde(p.llegadaEn);
+        return min === null ? '—' : <Badge tone={min >= ESPERA_LARGA ? 'danger' : 'neutral'}>{min} min</Badge>;
       },
     },
     {
@@ -72,7 +100,7 @@ function EnfermeriaPage() {
           size="sm"
           icon={faStethoscope}
           variant={actual?.id === p.id ? 'primary' : 'secondary'}
-          onClick={() => setSeleccionado(p)}
+          onClick={() => tomarSignos(p.id)}
         >
           {actual?.id === p.id ? 'Atendiendo' : 'Tomar signos'}
         </Button>
@@ -88,7 +116,7 @@ function EnfermeriaPage() {
       key: 'alertas',
       header: 'Alertas',
       render: (p) => {
-        const n = alertasDeVisita(datos, p.id, p.cedula, p.paciente).length;
+        const n = p.alertas.length;
         return n ? <Badge tone="danger">{n} {n === 1 ? 'alerta' : 'alertas'}</Badge> : <Badge tone="success">Sin alertas</Badge>;
       },
     },
@@ -99,6 +127,34 @@ function EnfermeriaPage() {
       render: (p) => <Button size="sm" variant="ghost" icon={faEye} onClick={() => setDetalle(p)}>Ver</Button>,
     },
   ];
+
+  let tabla;
+  if (error && !datos?.enEspera.length && !datos?.preparados.length) {
+    tabla = (
+      <EmptyState icon={faCircleExclamation} title="No se pudo cargar la sala de espera" text={error.message}
+        action={<Button variant="secondary" onClick={recargar}>Reintentar</Button>} />
+    );
+  } else if (cargando && !sala.enEspera.length && !sala.preparados.length) {
+    tabla = <EmptyState compact title="Cargando sala de espera…" />;
+  } else if (pestana === 'espera') {
+    tabla = (
+      <Table
+        caption="Pacientes en espera"
+        columns={columnasEspera}
+        rows={enEspera}
+        empty={<EmptyState icon={faUsers} title="No hay pacientes en espera" text="Cuando recepción confirme una cita, el paciente aparecerá aquí." />}
+      />
+    );
+  } else {
+    tabla = (
+      <Table
+        caption="Pacientes preparados"
+        columns={columnasPreparados}
+        rows={preparados}
+        empty={<EmptyState icon={faClipboardList} title="Nadie preparado todavía" />}
+      />
+    );
+  }
 
   return (
     <>
@@ -112,43 +168,28 @@ function EnfermeriaPage() {
               value={pestana}
               onChange={setPestana}
               items={[
-                { id: 'espera', label: 'En espera', count: datos.pacientesEnEspera.length },
-                { id: 'preparados', label: 'Preparados', count: datos.pacientesPreparados.length },
+                { id: 'espera', label: 'En espera', count: sala.enEspera.length },
+                { id: 'preparados', label: 'Preparados', count: sala.preparados.length },
               ]}
             />
             <SearchInput value={busqueda} onChange={setBusqueda} placeholder="Buscar paciente" />
           </div>
-
-          {pestana === 'espera' ? (
-            <Table
-              caption="Pacientes en espera"
-              columns={columnasEspera}
-              rows={enEspera}
-              empty={<EmptyState icon={faUsers} title="No hay pacientes en espera" text="Cuando recepción confirme una cita, el paciente aparecerá aquí." />}
-            />
-          ) : (
-            <Table
-              caption="Pacientes preparados"
-              columns={columnasPreparados}
-              rows={preparados}
-              empty={<EmptyState icon={faClipboardList} title="Nadie preparado todavía" />}
-            />
-          )}
+          {tabla}
         </Card>
 
-        <div className={styles.side}>
+        <div className={styles.side} ref={formularioRef}>
           <Card title="Signos vitales" icon={faHeartPulse}>
             {actual ? (
-              <SignosVitalesForm key={actual.id} paciente={actual} onGuardar={guardar} onCancelar={() => setSeleccionado(null)} />
+              <SignosVitalesForm key={actual.id} paciente={actual} onGuardar={guardar} onCancelar={() => setSeleccionadoId(null)} />
             ) : (
               <EmptyState compact icon={faStethoscope} title="Ningún paciente seleccionado" text="Elige “Tomar signos” en la sala de espera." />
             )}
           </Card>
 
           <Card title="Alertas de hoy" icon={faCircleExclamation} iconTone="danger" padded={false}>
-            {alertas.length ? (
+            {sala.alertasHoy.length ? (
               <div className={styles.alertsBody}>
-                <AlertList alertas={alertas} mostrarPaciente compact />
+                <AlertList alertas={sala.alertasHoy} mostrarPaciente compact />
               </div>
             ) : (
               <EmptyState compact title="Sin alertas" />
@@ -157,7 +198,7 @@ function EnfermeriaPage() {
         </div>
       </div>
 
-      <Card title="Últimas atenciones" subtitle="Las 10 más recientes" padded={false} className={styles.history}>
+      <Card title="Últimas atenciones" subtitle="Los 10 registros de signos más recientes" padded={false} className={styles.history}>
         <Table
           caption="Historial de atenciones"
           columns={[
@@ -167,26 +208,33 @@ function EnfermeriaPage() {
             {
               key: 'observaciones',
               header: 'Observaciones',
-              render: (a) => (/alerg/i.test(a.observaciones) ? <Badge tone="danger">{a.observaciones}</Badge> : a.observaciones),
+              render: (a) => (mencionaAlergia(a.observaciones) ? <Badge tone="danger">{a.observaciones}</Badge> : a.observaciones),
             },
+            { key: 'registradoPor', header: 'Registró' },
           ]}
-          rows={historial}
+          rows={sala.ultimasAtenciones}
           empty={<EmptyState compact title="Sin atenciones registradas" />}
         />
       </Card>
 
-      <Modal open={Boolean(detalle)} onClose={() => setDetalle(null)} title={detalle?.paciente} description={detalle && `${detalle.edad} años · ${detalle.sexo} · ${detalle.consulta}`}>
+      <Modal
+        open={Boolean(detalle)}
+        onClose={() => setDetalle(null)}
+        title={detalle?.paciente}
+        description={detalle && `${detalle.edad} años · ${detalle.sexo} · ${detalle.consulta}`}
+      >
         {detalle && (
           <dl className={styles.details}>
-            <div><dt>Presión arterial</dt><dd>{detalle.signosVitales?.presion}</dd></div>
+            <div><dt>Presión arterial</dt><dd>{detalle.signosVitales?.presion} mmHg</dd></div>
             <div><dt>Pulso</dt><dd>{detalle.signosVitales?.pulso}</dd></div>
             <div><dt>Temperatura</dt><dd>{detalle.signosVitales?.temperatura}</dd></div>
-            <div><dt>Preparado</dt><dd>{formatearFechaHora(detalle.fechaPreparacion)}</dd></div>
+            <div><dt>Preparado</dt><dd>{formatearFechaHora(detalle.preparadaEn)}</dd></div>
+            <div><dt>Registró</dt><dd>{detalle.signosVitales?.registradoPor}</dd></div>
             <div className={styles.detailsWide}><dt>Observaciones</dt><dd>{detalle.signosVitales?.observaciones}</dd></div>
-            {alertasDeVisita(datos, detalle.id, detalle.cedula, detalle.paciente).length > 0 && (
+            {detalle.alertas.length > 0 && (
               <div className={styles.detailsWide}>
                 <dt>Alertas médicas</dt>
-                <dd><AlertList compact alertas={alertasDeVisita(datos, detalle.id, detalle.cedula, detalle.paciente)} /></dd>
+                <dd><AlertList compact alertas={detalle.alertas} /></dd>
               </div>
             )}
           </dl>
