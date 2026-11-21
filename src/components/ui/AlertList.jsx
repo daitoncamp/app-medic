@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCircleExclamation, faHeartPulse, faTemperatureHalf, faTriangleExclamation, faWaveSquare,
+  faCircleExclamation, faHeartPulse, faLungs, faTemperatureHalf, faTriangleExclamation, faWaveSquare, faWind,
 } from '@fortawesome/free-solid-svg-icons';
 import { TEXTO_SEVERIDAD } from '../../utils/signosVitales';
 import styles from './AlertList.module.css';
@@ -9,6 +9,8 @@ const ICONO_SIGNO = {
   presion: faHeartPulse,
   pulso: faWaveSquare,
   temperatura: faTemperatureHalf,
+  frecuenciaRespiratoria: faWind,
+  saturacion: faLungs,
 };
 
 /**

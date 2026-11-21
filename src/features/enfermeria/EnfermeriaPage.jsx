@@ -228,6 +228,8 @@ function EnfermeriaPage() {
             <div><dt>Presión arterial</dt><dd>{detalle.signosVitales?.presion} mmHg</dd></div>
             <div><dt>Pulso</dt><dd>{detalle.signosVitales?.pulso}</dd></div>
             <div><dt>Temperatura</dt><dd>{detalle.signosVitales?.temperatura}</dd></div>
+            <div><dt>Frecuencia respiratoria</dt><dd>{detalle.signosVitales?.frecuenciaRespiratoria || 'No registrada'}</dd></div>
+            <div><dt>Saturación de oxígeno</dt><dd>{detalle.signosVitales?.saturacion || 'No registrada'}</dd></div>
             <div><dt>Preparado</dt><dd>{formatearFechaHora(detalle.preparadaEn)}</dd></div>
             <div><dt>Registró</dt><dd>{detalle.signosVitales?.registradoPor}</dd></div>
             <div className={styles.detailsWide}><dt>Observaciones</dt><dd>{detalle.signosVitales?.observaciones}</dd></div>

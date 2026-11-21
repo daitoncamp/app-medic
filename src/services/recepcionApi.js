@@ -176,8 +176,19 @@ const formatoSignos = (s) => s && ({
   presion: `${s.presionSistolica}/${s.presionDiastolica}`,
   pulso: `${s.pulso} lpm`,
   temperatura: `${s.temperatura}°C`,
+  frecuenciaRespiratoria: s.frecuenciaRespiratoria == null ? null : `${s.frecuenciaRespiratoria} rpm`,
+  saturacion: s.saturacion == null ? null : `${s.saturacion}%`,
   observaciones: s.observaciones || 'Ninguna',
 });
+
+/** "Presión 120/80 · Pulso 72 lpm · Temp. 36.5°C · FR 16 rpm · SpO₂ 98%" */
+export const resumenSignos = (s) => [
+  `Presión ${s.presion}`,
+  `Pulso ${s.pulso}`,
+  `Temp. ${s.temperatura}`,
+  s.frecuenciaRespiratoria && `FR ${s.frecuenciaRespiratoria}`,
+  s.saturacion && `SpO₂ ${s.saturacion}`,
+].filter(Boolean).join(' · ');
 
 /**
  * Ficha completa desde la API, con la misma forma que usan la pantalla
@@ -231,7 +242,7 @@ export async function obtenerFicha(cedula) {
         tipo: 'signos',
         fecha: c.signosVitales.creadoEn,
         titulo: 'Signos vitales',
-        detalle: `Presión ${s.presion} · Pulso ${s.pulso} · Temp. ${s.temperatura}`,
+        detalle: resumenSignos(s),
         notas: c.signosVitales.observaciones,
       };
     }),

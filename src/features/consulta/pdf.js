@@ -467,33 +467,45 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
   if (paciente.signosVitales) {
     y = seccion(doc, 'Signos vitales (enfermería)', y);
     const sv = paciente.signosVitales;
-    const datos = [['Presión arterial', sv.presion, 'presion'], ['Pulso', sv.pulso, 'pulso'], ['Temperatura', sv.temperatura, 'temperatura']];
+    const datos = [
+      ['Presión arterial', sv.presion, 'presion'],
+      ['Pulso', sv.pulso, 'pulso'],
+      ['Temperatura', sv.temperatura, 'temperatura'],
+      // Opcionales: solo aparecen si enfermería los registró
+      ...(sv.frecuenciaRespiratoria ? [['Frec. respiratoria', sv.frecuenciaRespiratoria, 'frecuenciaRespiratoria']] : []),
+      ...(sv.saturacion ? [['Saturación O2', sv.saturacion, 'saturacion']] : []),
+    ];
     const ancho = (CONTENIDO - 8) / 3;
     datos.forEach(([etiqueta, valor, signo], i) => {
       // El valor se pinta del color de la alerta si está fuera de lo normal
       const fuera = (sv.hallazgos || []).find((h) => h.signo === signo);
-      const x = MARGEN + i * (ancho + 4);
+      const x = MARGEN + (i % 3) * (ancho + 4);
+      const yCaja = y + Math.floor(i / 3) * 19;
       relleno(doc, C.fondo);
       trazo(doc, C.borde);
       doc.setLineWidth(0.3);
-      doc.roundedRect(x, y, ancho, 15, 2, 2, 'FD');
+      doc.roundedRect(x, yCaja, ancho, 15, 2, 2, 'FD');
       fuente(doc, 7, 'bold', C.tenue);
-      doc.text(etiqueta.toUpperCase(), x + 4, y + 5.5);
+      doc.text(etiqueta.toUpperCase(), x + 4, yCaja + 5.5);
       fuente(doc, 12, 'bold', fuera ? (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color : C.texto);
-      doc.text(String(valor || '-'), x + 4, y + 11.5);
+      doc.text(String(valor || '-'), x + 4, yCaja + 11.5);
       if (fuera) {
-        fuente(doc, 7.5, 'bold', (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color);
-        doc.text(fuera.titulo, x + ancho - 4, y + 11.5, { align: 'right' });
+        fuente(doc, 7, 'bold', (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color);
+        doc.text(doc.splitTextToSize(fuera.titulo, ancho - 26)[0], x + ancho - 4, yCaja + 11.5, { align: 'right' });
       }
     });
-    y += 23;
+    y += Math.ceil(datos.length / 3) * 19 + 4;
   }
 
   // Odontograma
   y = seccion(doc, 'Odontograma', y);
   y = odontogramaPDF(doc, odontograma, y);
 
-  // Tabla de procedimientos
+  // Tabla de procedimientos (si no cabe el título, la cabecera y una fila, empieza en otra hoja)
+  if (y > ALTO - 55) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
   y = seccion(doc, 'Procedimientos y diagnósticos', y);
   y = cabeceraTabla(doc, y);
 

@@ -29,6 +29,8 @@ export const adaptarSignos = (s) => s && ({
   presion: `${s.presionSistolica}/${s.presionDiastolica}`,
   pulso: `${s.pulso} lpm`,
   temperatura: `${s.temperatura}°C`,
+  frecuenciaRespiratoria: s.frecuenciaRespiratoria == null ? null : `${s.frecuenciaRespiratoria} rpm`,
+  saturacion: s.saturacion == null ? null : `${s.saturacion}%`,
   observaciones: s.observaciones || 'Ninguna',
   registradoPor: s.registradoPor,
   fecha: s.creadoEn,
@@ -70,10 +72,12 @@ export async function obtenerSala() {
  * Guarda los signos vitales. El servidor los evalúa según la edad y devuelve
  * las alertas que creó.
  */
-export async function registrarSignos(citaId, { presion, pulso, temperatura, observaciones }) {
+export async function registrarSignos(citaId, {
+  presion, pulso, temperatura, frecuenciaRespiratoria, saturacion, observaciones,
+}) {
   const r = await api(`/enfermeria/citas/${citaId}/signos`, {
     method: 'POST',
-    body: { presion, pulso, temperatura, observaciones },
+    body: { presion, pulso, temperatura, frecuenciaRespiratoria, saturacion, observaciones },
   });
   return { cita: adaptarCita(r.cita), alertas: ordenarPorSeveridad(r.alertas.map(adaptarAlerta)) };
 }

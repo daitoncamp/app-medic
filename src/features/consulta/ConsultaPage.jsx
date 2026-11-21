@@ -286,6 +286,8 @@ function ConsultaPage() {
               <div><dt>Presión</dt><dd>{sv?.presion || '—'}</dd></div>
               <div><dt>Pulso</dt><dd>{sv?.pulso || '—'}</dd></div>
               <div><dt>Temperatura</dt><dd>{sv?.temperatura || '—'}</dd></div>
+              {sv?.frecuenciaRespiratoria && <div><dt>Frec. respiratoria</dt><dd>{sv.frecuenciaRespiratoria}</dd></div>}
+              {sv?.saturacion && <div><dt>Saturación O₂</dt><dd>{sv.saturacion}</dd></div>}
               <div>
                 <dt>Alergias</dt>
                 <dd>{paciente.alergias === 'Ninguna' ? 'Ninguna' : <Badge tone="danger" className={styles.allergyBadge}>{paciente.alergias}</Badge>}</dd>

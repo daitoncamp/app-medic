@@ -6,10 +6,17 @@ import { alertasDeLaToma, referenciasParaEdad, validarMedicion } from '../../uti
 import { edadTexto } from '../../utils/formato';
 import styles from './Enfermeria.module.css';
 
-const VACIO = { presion: '', pulso: '', temperatura: '', observaciones: '' };
+const VACIO = {
+  presion: '', pulso: '', temperatura: '', frecuenciaRespiratoria: '', saturacion: '', observaciones: '',
+};
 
-// Escribe "12080" → "120/80"
+// "12080" → "120/80". Si se escribe la barra, se respeta: "95/60" queda igual
+// (en niños la sistólica suele tener 2 dígitos).
 const formatearPresion = (valor) => {
+  if (valor.includes('/')) {
+    const [sis, ...resto] = valor.split('/');
+    return `${sis.replace(/\D/g, '').slice(0, 3)}/${resto.join('').replace(/\D/g, '').slice(0, 3)}`;
+  }
   const digitos = valor.replace(/\D/g, '').slice(0, 6);
   return digitos.length > 3 ? `${digitos.slice(0, 3)}/${digitos.slice(3)}` : digitos;
 };
@@ -35,10 +42,16 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
     presion: erroresActuales.presion ? '' : form.presion,
     pulso: erroresActuales.pulso ? '' : form.pulso,
     temperatura: erroresActuales.temperatura ? '' : form.temperatura,
+    frecuenciaRespiratoria: erroresActuales.frecuenciaRespiratoria ? '' : form.frecuenciaRespiratoria,
+    saturacion: erroresActuales.saturacion ? '' : form.saturacion,
   };
   // Vista previa con las mismas reglas que aplica el servidor al guardar
   const alertas = alertasDeLaToma({
-    ...evaluables, observaciones: form.observaciones, edad: paciente.edad, sexo: paciente.sexo,
+    ...evaluables,
+    observaciones: form.observaciones,
+    edad: paciente.edad,
+    edadMeses: paciente.datosPaciente?.edadMeses,
+    sexo: paciente.sexo,
   });
   const completo = Object.keys(erroresActuales).length === 0;
   const alergiasConocidas = (paciente.antecedentes || []).filter((a) => a.tipo === 'ALERGIA');
@@ -98,11 +111,11 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
       <Field
         label="Presión arterial (mmHg)"
         inputMode="numeric"
-        placeholder="120/80"
+        placeholder={tieneEdad && paciente.edad < 13 ? '95/60' : '120/80'}
         value={form.presion}
         onChange={cambiar('presion', formatearPresion)}
         error={errores.presion}
-        hint={`Normal: ${referencias.presion}`}
+        hint={`Normal: ${referencias.presion}. Si la sistólica tiene 2 dígitos, escribe la barra (95/60).`}
       />
       <FieldRow>
         <Field
@@ -122,6 +135,26 @@ function SignosVitalesForm({ paciente, onGuardar, onCancelar }) {
           onChange={cambiar('temperatura', soloDecimal)}
           error={errores.temperatura}
           hint={`Normal: ${referencias.temperatura}`}
+        />
+      </FieldRow>
+      <FieldRow>
+        <Field
+          label="Frecuencia respiratoria (rpm)"
+          inputMode="numeric"
+          placeholder="16"
+          value={form.frecuenciaRespiratoria}
+          onChange={cambiar('frecuenciaRespiratoria', soloEntero)}
+          error={errores.frecuenciaRespiratoria}
+          hint={`Opcional · Normal: ${referencias.frecuenciaRespiratoria}`}
+        />
+        <Field
+          label="Saturación de oxígeno (%)"
+          inputMode="numeric"
+          placeholder="98"
+          value={form.saturacion}
+          onChange={cambiar('saturacion', soloEntero)}
+          error={errores.saturacion}
+          hint={`Opcional · Normal: ${referencias.saturacion}`}
         />
       </FieldRow>
       <Field
