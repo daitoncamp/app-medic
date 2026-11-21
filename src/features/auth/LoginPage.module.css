@@ -1,0 +1,233 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+/* ===== Lado izquierdo: identidad ===== */
+.hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-10) clamp(32px, 6vw, 88px);
+  background:
+    radial-gradient(circle at 15% 20%, #ffffff 0%, transparent 45%),
+    linear-gradient(160deg, #f8fafc 0%, #eef2f7 100%);
+  border-right: 1px solid var(--color-border);
+}
+
+.logo {
+  width: 120px;
+}
+
+.heroTitle {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  color: var(--gray-900);
+}
+
+.heroText {
+  margin-top: var(--space-3);
+  max-width: 440px;
+  font-size: var(--text-lg);
+  color: var(--gray-600);
+}
+
+.etapas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 420px;
+  counter-reset: etapa;
+}
+
+.etapa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.etapa strong {
+  display: block;
+}
+
+.etapaTexto {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.etapaIcon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: #fff;
+}
+
+.blue { background: #2563eb; }
+.green { background: #16a34a; }
+.purple { background: #9333ea; }
+
+/* ===== Lado derecho: formulario ===== */
+.panel {
+  display: grid;
+  place-items: center;
+  padding: var(--space-8) var(--space-6);
+  background: var(--color-surface);
+}
+
+.form {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.logoMobile {
+  display: none;
+  width: 88px;
+  margin: 0 auto var(--space-2);
+}
+
+.title {
+  font-size: var(--text-2xl);
+}
+
+.subtitle {
+  margin-top: calc(var(--space-3) * -1);
+  color: var(--color-text-muted);
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.info {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordField input {
+  padding-right: 44px;
+}
+
+.toggle {
+  position: absolute;
+  right: 4px;
+  top: 29px;
+  width: 36px;
+  height: 34px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: var(--gray-900);
+}
+
+.submit {
+  width: 100%;
+  height: 44px;
+  margin-top: var(--space-2);
+  background: var(--gray-900);
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--gray-700);
+}
+
+.demo {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.demo summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.demoNote {
+  margin: var(--space-2) 0;
+  color: var(--color-text-muted);
+}
+
+.demoList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.demoItem {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  cursor: pointer;
+  text-align: left;
+}
+
+.demoItem:hover {
+  border-color: var(--gray-400);
+}
+
+.demoItem span {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    display: none;
+  }
+
+  .logoMobile {
+    display: block;
+  }
+
+  .panel {
+    min-height: 100vh;
+  }
+}

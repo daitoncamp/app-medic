@@ -1,10 +1,14 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
-import './index.css' // O globals.css
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.jsx';
+import { borrarDatosLocalesAntiguos } from './services/clinica';
+import './styles/tokens.css';
+import './styles/base.css';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+borrarDatosLocalesAntiguos();
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
     <App />
-  </React.StrictMode>,
-)
+  </StrictMode>,
+);

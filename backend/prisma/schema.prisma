@@ -1,0 +1,422 @@
+// ==================== MODELO DE DATOS: CLÍNICA DENTAL ULEAM ====================
+// Documentación de Prisma: https://www.prisma.io/docs/orm/prisma-schema
+//
+// Reglas del modelo:
+// - Los registros clínicos NUNCA se borran: se anulan (anuladaEn + motivo).
+// - Se guarda la fecha de nacimiento, no la edad (la edad se calcula).
+// - Cada acción sobre datos de salud queda en la tabla de auditoría.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Rol {
+  ADMIN
+  RECEPCIONISTA
+  ENFERMERA
+  ODONTOLOGA
+}
+
+enum Sexo {
+  FEMENINO
+  MASCULINO
+  OTRO
+}
+
+/// Flujo: PENDIENTE → CONFIRMADA (sala de espera) → PREPARADA (signos tomados)
+/// → ATENDIDA. También puede terminar en NO_ASISTIO o ANULADA.
+enum EstadoCita {
+  PENDIENTE
+  CONFIRMADA
+  PREPARADA
+  ATENDIDA
+  NO_ASISTIO
+  ANULADA
+}
+
+enum TipoAntecedente {
+  ENFERMEDAD
+  MEDICACION
+  ALERGIA
+  CIRUGIA
+  EMBARAZO
+  HABITO
+  OTRO
+}
+
+enum TipoAlerta {
+  SIGNOS_VITALES
+  ALERGIA
+  ANTECEDENTE
+}
+
+enum Severidad {
+  CRITICA
+  ALTA
+  MODERADA
+}
+
+enum EstadoProcedimiento {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADO
+}
+
+enum EstadoDiente {
+  SANO
+  CARIES
+  TRATADO
+  OBSERVACION
+  AUSENTE
+}
+
+/// Caras del diente. COMPLETA = el estado aplica a toda la pieza (p. ej. ausente).
+enum CaraDiente {
+  OCLUSAL
+  MESIAL
+  DISTAL
+  VESTIBULAR
+  LINGUAL
+  COMPLETA
+}
+
+enum CanalRecordatorio {
+  CORREO
+  WHATSAPP
+}
+
+enum EstadoRecordatorio {
+  PENDIENTE
+  ENVIADO
+  FALLIDO
+  CANCELADO
+}
+
+enum AccionAuditoria {
+  LOGIN
+  LOGIN_FALLIDO
+  LOGOUT
+  VER
+  CREAR
+  ACTUALIZAR
+  ANULAR
+  DESCARGAR
+}
+
+// ==================== USUARIOS ====================
+
+model Usuario {
+  id            String    @id @default(uuid())
+  nombre        String
+  email         String    @unique
+  passwordHash  String
+  rol           Rol
+  activo        Boolean   @default(true)
+  /// Para obligar a cambiar la contraseña temporal en el primer ingreso
+  debeCambiarPassword Boolean @default(true)
+  /// Intentos fallidos seguidos; al llegar al límite se bloquea un tiempo
+  intentosFallidos Int       @default(0)
+  bloqueadoHasta   DateTime?
+  ultimoAcceso  DateTime?
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  citasCreadas      Cita[]              @relation("CitaCreadaPor")
+  citasAnuladas     Cita[]              @relation("CitaAnuladaPor")
+  signosRegistrados SignosVitales[]
+  diagnosticos      Diagnostico[]
+  marcasOdontograma MarcaOdontograma[]
+  recetas           Receta[]
+  consentimientos   Consentimiento[]
+  antecedentes      Antecedente[]
+  auditoria         Auditoria[]
+
+  @@map("usuarios")
+}
+
+// ==================== PACIENTES ====================
+
+model Paciente {
+  id              String    @id @default(uuid())
+  cedula          String    @unique @db.VarChar(10)
+  nombres         String
+  apellidos       String
+  fechaNacimiento DateTime  @db.Date
+  sexo            Sexo
+  telefono        String?   @db.VarChar(15)
+  correo          String?
+  direccion       String?
+  /// Persona a avisar en una emergencia
+  contactoEmergenciaNombre   String?
+  contactoEmergenciaTelefono String? @db.VarChar(15)
+  /// Cédula, nombres y apellidos en minúsculas y sin tildes, para buscar "macias" y encontrar "Macías"
+  textoBusqueda   String    @default("")
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
+
+  citas           Cita[]
+  antecedentes    Antecedente[]
+  alertas         AlertaMedica[]
+  marcas          MarcaOdontograma[]
+  recetas         Receta[]
+
+  @@index([apellidos, nombres])
+  @@index([textoBusqueda])
+  @@map("pacientes")
+}
+
+/// Antecedentes médicos: se registran una vez y se muestran en cada consulta
+model Antecedente {
+  id              String          @id @default(uuid())
+  pacienteId      String
+  tipo            TipoAntecedente
+  descripcion     String
+  /// false cuando ya no aplica (p. ej. terminó un tratamiento); no se borra
+  vigente         Boolean         @default(true)
+  registradoPorId String
+  creadoEn        DateTime        @default(now())
+  actualizadoEn   DateTime        @updatedAt
+
+  paciente      Paciente @relation(fields: [pacienteId], references: [id])
+  registradoPor Usuario  @relation(fields: [registradoPorId], references: [id])
+
+  @@index([pacienteId])
+  @@map("antecedentes")
+}
+
+// ==================== CITAS ====================
+
+model Cita {
+  id            String     @id @default(uuid())
+  pacienteId    String
+  /// Fecha y hora de inicio (en UTC; se muestra en hora de Ecuador)
+  inicio        DateTime
+  duracionMin   Int        @default(30)
+  tipoConsulta  String
+  estado        EstadoCita @default(PENDIENTE)
+  motivo        String?
+
+  // Marcas de tiempo del flujo (sirven para métricas como el tiempo de espera)
+  confirmadaEn  DateTime?
+  llegadaEn     DateTime?
+  preparadaEn   DateTime?
+  atendidaEn    DateTime?
+
+  // Anulación: la cita no se borra, queda registrado quién y por qué
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+  anuladaPorId    String?
+
+  creadaPorId   String
+  creadoEn      DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
+
+  paciente      Paciente   @relation(fields: [pacienteId], references: [id])
+  creadaPor     Usuario    @relation("CitaCreadaPor", fields: [creadaPorId], references: [id])
+  anuladaPor    Usuario?   @relation("CitaAnuladaPor", fields: [anuladaPorId], references: [id])
+
+  signosVitales   SignosVitales?
+  alertas         AlertaMedica[]
+  diagnosticos    Diagnostico[]
+  marcas          MarcaOdontograma[]
+  recetas         Receta[]
+  consentimientos Consentimiento[]
+  recordatorios   Recordatorio[]
+
+  @@index([inicio])
+  @@index([pacienteId])
+  @@index([estado])
+  @@map("citas")
+}
+
+// ==================== ENFERMERÍA ====================
+
+model SignosVitales {
+  id                     String   @id @default(uuid())
+  citaId                 String   @unique
+  presionSistolica       Int
+  presionDiastolica      Int
+  pulso                  Int
+  temperatura            Decimal  @db.Decimal(4, 1)
+  frecuenciaRespiratoria Int?
+  saturacionO2           Int?
+  pesoKg                 Decimal? @db.Decimal(5, 2)
+  tallaCm                Decimal? @db.Decimal(5, 1)
+  observaciones          String?
+  /// Edad en meses al momento de la toma (los rangos normales dependen de ella)
+  edadMeses              Int
+  registradoPorId        String
+  creadoEn               DateTime @default(now())
+
+  cita          Cita           @relation(fields: [citaId], references: [id])
+  registradoPor Usuario        @relation(fields: [registradoPorId], references: [id])
+  alertas       AlertaMedica[]
+
+  @@map("signos_vitales")
+}
+
+model AlertaMedica {
+  id              String     @id @default(uuid())
+  pacienteId      String
+  citaId          String?
+  signosVitalesId String?
+  tipo            TipoAlerta
+  /// presion | pulso | temperatura | respiracion | saturacion
+  signo           String?
+  severidad       Severidad
+  titulo          String
+  descripcion     String
+  creadoEn        DateTime   @default(now())
+
+  paciente      Paciente       @relation(fields: [pacienteId], references: [id])
+  cita          Cita?          @relation(fields: [citaId], references: [id])
+  signosVitales SignosVitales? @relation(fields: [signosVitalesId], references: [id])
+
+  @@index([pacienteId])
+  @@index([creadoEn])
+  @@map("alertas_medicas")
+}
+
+// ==================== ODONTOLOGÍA ====================
+
+model Diagnostico {
+  id            String              @id @default(uuid())
+  citaId        String
+  /// Piezas en numeración FDI, p. ej. [16, 26]
+  piezas        Int[]
+  procedimiento String
+  descripcion   String
+  notas         String?
+  estado        EstadoProcedimiento @default(EN_PROCESO)
+  odontologoId  String
+  creadoEn      DateTime            @default(now())
+  actualizadoEn DateTime            @updatedAt
+
+  cita       Cita    @relation(fields: [citaId], references: [id])
+  odontologo Usuario @relation(fields: [odontologoId], references: [id])
+
+  @@index([citaId])
+  @@map("diagnosticos")
+}
+
+/// Odontograma por visita y por cara: cada fila es una marca sobre una cara
+/// de una pieza en una cita. Así se puede comparar entre visitas.
+model MarcaOdontograma {
+  id            String       @id @default(uuid())
+  pacienteId    String
+  citaId        String
+  pieza         Int
+  cara          CaraDiente   @default(COMPLETA)
+  estado        EstadoDiente
+  registradoPorId String
+  creadoEn      DateTime     @default(now())
+
+  paciente      Paciente @relation(fields: [pacienteId], references: [id])
+  cita          Cita     @relation(fields: [citaId], references: [id])
+  registradoPor Usuario  @relation(fields: [registradoPorId], references: [id])
+
+  @@unique([citaId, pieza, cara])
+  @@index([pacienteId])
+  @@map("marcas_odontograma")
+}
+
+model Receta {
+  id           String   @id @default(uuid())
+  /// Número legible, p. ej. RX-20261121-133814
+  numero       String   @unique
+  citaId       String
+  pacienteId   String
+  odontologoId String
+  indicaciones String?
+  /// Las recetas no se editan; si hay un error se anula y se emite otra
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+  creadoEn     DateTime @default(now())
+
+  cita         Cita                @relation(fields: [citaId], references: [id])
+  paciente     Paciente            @relation(fields: [pacienteId], references: [id])
+  odontologo   Usuario             @relation(fields: [odontologoId], references: [id])
+  medicamentos RecetaMedicamento[]
+
+  @@index([pacienteId])
+  @@map("recetas")
+}
+
+model RecetaMedicamento {
+  id          String @id @default(uuid())
+  recetaId    String
+  medicamento String
+  dosis       String
+  frecuencia  String
+  duracion    String
+  orden       Int    @default(0)
+
+  receta Receta @relation(fields: [recetaId], references: [id])
+
+  @@map("receta_medicamentos")
+}
+
+model Consentimiento {
+  id            String   @id @default(uuid())
+  citaId        String
+  procedimiento String
+  /// Texto exacto que aceptó el paciente (por si la plantilla cambia después)
+  textoAceptado String
+  /// Quién firma: el paciente o su representante si es menor de edad
+  firmanteNombre  String
+  firmanteCedula  String  @db.VarChar(10)
+  esRepresentante Boolean @default(false)
+  aceptadoEn    DateTime @default(now())
+  odontologoId  String
+
+  cita       Cita    @relation(fields: [citaId], references: [id])
+  odontologo Usuario @relation(fields: [odontologoId], references: [id])
+
+  @@index([citaId])
+  @@map("consentimientos")
+}
+
+// ==================== OPERACIÓN ====================
+
+model Recordatorio {
+  id             String             @id @default(uuid())
+  citaId         String
+  canal          CanalRecordatorio
+  programadoPara DateTime
+  estado         EstadoRecordatorio @default(PENDIENTE)
+  enviadoEn      DateTime?
+  error          String?
+  creadoEn       DateTime           @default(now())
+
+  cita Cita @relation(fields: [citaId], references: [id])
+
+  @@index([estado, programadoPara])
+  @@map("recordatorios")
+}
+
+/// Quién hizo qué y cuándo. Solo se insertan filas: nunca se editan ni se borran.
+model Auditoria {
+  id        String          @id @default(uuid())
+  usuarioId String?
+  accion    AccionAuditoria
+  /// Tabla o recurso afectado, p. ej. "Paciente", "Cita", "Receta"
+  entidad   String
+  entidadId String?
+  detalle   Json?
+  ip        String?
+  creadoEn  DateTime        @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidad, entidadId])
+  @@index([usuarioId])
+  @@index([creadoEn])
+  @@map("auditoria")
+}
