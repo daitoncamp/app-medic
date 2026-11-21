@@ -61,9 +61,14 @@
 }
 
 .swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-full);
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid;
+  border-radius: 4px 4px 6px 6px;
+}
+
+.scrollHint {
+  display: none;
 }
 
 .help {
@@ -77,7 +82,8 @@
   gap: var(--space-3);
   padding: var(--space-5) var(--space-3);
   border-radius: var(--radius-lg);
-  background: var(--gray-50);
+  background: linear-gradient(180deg, #fdf2f4 0%, #fff7f8 48%, #fff7f8 52%, #fdf2f4 100%);
+  border: 1px solid #f6dde2;
   overflow-x: auto;
 }
 
@@ -99,73 +105,92 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 6px;
 }
 
 .arch {
   display: flex;
   justify-content: center;
-  gap: clamp(6px, 2%, var(--space-4));
+  gap: clamp(6px, 2.5%, var(--space-5));
 }
 
+/* Línea media entre la arcada superior y la inferior */
 .upper {
-  padding-bottom: var(--space-5);
-  border-bottom: 1px dashed var(--gray-300);
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e8b9c2;
 }
 
 .quadrant {
   flex: 1;
   display: flex;
-  gap: 3px;
-  max-width: 340px;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 360px;
+}
+
+.lower .quadrant {
+  align-items: flex-start;
 }
 
 .quadrant:first-child {
   justify-content: flex-end;
 }
 
+/* Cada diente es un botón: dibujo + número.
+   En la arcada superior el número va abajo (hacia la línea media) y en la inferior arriba. */
 .tooth {
   flex: 1 1 0;
   min-width: 0;
-  max-width: 40px;
-  height: 46px;
-  padding: 0;
-  border: 1.5px solid var(--gray-300);
-  border-radius: 10px 10px 14px 14px;
-  background: #fff;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--gray-700);
+  max-width: 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 1px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
   cursor: pointer;
-  transition: transform 0.1s;
+  transition: background-color 0.15s, transform 0.12s;
 }
 
 .lower .tooth {
-  border-radius: 14px 14px 10px 10px;
+  flex-direction: column-reverse;
 }
 
 .tooth:hover {
-  transform: translateY(-2px);
-  border-color: var(--gray-500);
+  background: rgb(255 255 255 / 0.8);
+}
+
+.upper .tooth:hover { transform: translateY(2px); }
+.lower .tooth:hover { transform: translateY(-2px); }
+
+.toothSvg {
+  width: 100%;
+  height: auto;
+  max-height: 64px;
+  overflow: visible;
+  filter: drop-shadow(0 1px 1px rgb(15 23 42 / 0.12));
+}
+
+.number {
+  min-width: 24px;
+  padding: 1px 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--gray-600);
+  font-variant-numeric: tabular-nums;
 }
 
 .selected {
-  outline: 2px solid var(--gray-900);
-  outline-offset: 2px;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 2px var(--gray-900);
 }
-
-/* Colores de estado (mismos en la paleta y en los dientes) */
-.sano { background: #dcfce7; border-color: #22c55e; color: #166534; }
-.caries { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
-.tratado { background: #dbeafe; border-color: #3b82f6; color: #1e40af; }
-.observacion { background: #fef9c3; border-color: #eab308; color: #854d0e; }
-.ausente { background: #e5e7eb; border-color: #6b7280; color: #374151; text-decoration: line-through; }
-
-.swatch.sano { background: #22c55e; }
-.swatch.caries { background: #ef4444; }
-.swatch.tratado { background: #3b82f6; }
-.swatch.observacion { background: #eab308; }
-.swatch.ausente { background: #6b7280; }
 
 .footer {
   display: flex;
@@ -188,15 +213,10 @@
 /* En pantallas angostas se mantiene un tamaño tocable y se permite desplazar */
 @media (max-width: 600px) {
   .arches {
-    min-width: 560px;
+    min-width: 600px;
   }
 
-  .tooth {
-    height: 40px;
-    font-size: 10px;
-  }
-
-  .quadrant {
-    gap: 2px;
+  .scrollHint {
+    display: inline;
   }
 }

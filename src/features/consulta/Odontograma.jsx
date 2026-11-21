@@ -1,20 +1,9 @@
 import { useState } from 'react';
 import { faBroom, faEraser } from '@fortawesome/free-solid-svg-icons';
 import { Button } from '../../components/ui';
-import { ESTADOS_DIENTE } from './dientes';
+import Diente from './Diente';
+import { DIENTES, ESTADOS_DIENTE, estadoDiente } from './dientes';
 import styles from './Odontograma.module.css';
-
-// Numeración FDI. Cada arcada se divide en dos cuadrantes (derecha | izquierda del paciente)
-const DIENTES = {
-  adulto: {
-    superior: [[18, 17, 16, 15, 14, 13, 12, 11], [21, 22, 23, 24, 25, 26, 27, 28]],
-    inferior: [[48, 47, 46, 45, 44, 43, 42, 41], [31, 32, 33, 34, 35, 36, 37, 38]],
-  },
-  nino: {
-    superior: [[55, 54, 53, 52, 51], [61, 62, 63, 64, 65]],
-    inferior: [[85, 84, 83, 82, 81], [71, 72, 73, 74, 75]],
-  },
-};
 
 /**
  * Odontograma de un paciente.
@@ -46,11 +35,18 @@ function Odontograma({ estados, onChange, onLimpiarTodo }) {
             <button
               key={n}
               type="button"
-              className={`${styles.tooth} ${styles[estados[n]] || ''} ${seleccionado === n ? styles.selected : ''}`}
+              className={`${styles.tooth} ${seleccionado === n ? styles.selected : ''}`}
               onClick={() => marcar(n)}
-              aria-label={`Diente ${n}: ${ESTADOS_DIENTE.find((e) => e.id === estados[n])?.label || 'sin registrar'}`}
+              aria-label={`Diente ${n}: ${estadoDiente(estados[n])?.label || 'sin registrar'}`}
+              aria-pressed={seleccionado === n}
             >
-              {n}
+              <Diente numero={n} estado={estados[n]} className={styles.toothSvg} />
+              <span
+                className={styles.number}
+                style={estados[n] ? { background: estadoDiente(estados[n]).stroke, color: '#fff' } : undefined}
+              >
+                {n}
+              </span>
             </button>
           ))}
         </div>
@@ -91,14 +87,17 @@ function Odontograma({ estados, onChange, onLimpiarTodo }) {
               className={`${styles.paletteItem} ${estadoActivo === e.id ? styles.paletteActive : ''}`}
               onClick={() => setEstadoActivo(e.id)}
             >
-              <span className={`${styles.swatch} ${styles[e.id]}`} aria-hidden="true" />
+              <span className={styles.swatch} style={{ background: e.fill, borderColor: e.stroke }} aria-hidden="true" />
               {e.label}
             </button>
           ))}
         </div>
       </div>
 
-      <p className={styles.help}>Elige un estado y toca los dientes para marcarlos. Vista de frente al paciente.</p>
+      <p className={styles.help}>
+        Elige un estado y toca los dientes para marcarlos. Vista de frente al paciente.
+        <span className={styles.scrollHint}> Desliza el odontograma para ver todas las piezas.</span>
+      </p>
 
       <div className={styles.mouth}>
         <span className={styles.side}>Derecha</span>
