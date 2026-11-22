@@ -165,10 +165,13 @@ Cada cierre queda en la auditoría (entidad `CierreDelDia`) con las citas afecta
 | Ruta | Quién | Qué hace |
 |---|---|---|
 | `GET /api/recordatorios?fecha=` | Recepción, Admin | Citas pendientes o confirmadas de ese día (por defecto, mañana) y si ya se avisó |
-| `POST /api/recordatorios/:citaId/enviado` | Recepción, Admin | `{ canal: "WHATSAPP" }`. Registra quién avisó y cuándo |
+| `POST /api/recordatorios/:citaId/enviado` | Recepción, Admin | `{ canal: "WHATSAPP" \| "SMS" }`. Registra quién avisó, cuándo y por dónde |
 
-Recepción envía el mensaje desde su propio WhatsApp: la app abre `wa.me` con el texto listo
-(dirigido al representante si el paciente es menor de edad). No se usa ningún servicio de pago.
+Recepción envía el mensaje desde su propio WhatsApp (la app abre `wa.me` con el texto listo, dirigido al
+representante si el paciente es menor de edad) o por SMS (abre la app de mensajes del celular con un texto
+corto y sin tildes, que cabe en un solo SMS de 160 caracteres). No se usa ningún servicio de pago.
+
+Para el canal SMS hay una migración: `npm run db:migrate` (agrega el valor `SMS` al tipo `CanalRecordatorio`).
 El seed crea dos citas para mañana para probarlo.
 
 ### Odontograma

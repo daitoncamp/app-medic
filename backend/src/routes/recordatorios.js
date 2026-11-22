@@ -1,8 +1,8 @@
 // ==================== RECORDATORIOS DE CITAS ====================
 //   GET  /api/recordatorios?fecha=YYYY-MM-DD      citas de ese día (por defecto, mañana) y si ya se avisó
-//   POST /api/recordatorios/:citaId/enviado       { canal: 'WHATSAPP' } registra que se envió
+//   POST /api/recordatorios/:citaId/enviado       { canal: 'WHATSAPP' | 'SMS' } registra que se envió
 //
-// El mensaje lo envía recepción desde su WhatsApp (la app arma el enlace con el
+// El mensaje lo envía recepción desde su WhatsApp o por SMS desde el celular (la app arma el enlace con el
 // texto listo). Aquí solo se registra quién avisó y cuándo, para no repetir.
 
 import { Router } from 'express';
@@ -52,7 +52,7 @@ rutasRecordatorios.get('/', puedeRecordar, async (req, res) => {
 });
 
 rutasRecordatorios.post('/:citaId/enviado', puedeRecordar, async (req, res) => {
-  const { canal } = validar(z.object({ canal: z.enum(['WHATSAPP', 'CORREO']).default('WHATSAPP') }), req.body);
+  const { canal } = validar(z.object({ canal: z.enum(['WHATSAPP', 'SMS', 'CORREO']).default('WHATSAPP') }), req.body);
   const cita = await prisma.cita.findUnique({ where: { id: req.params.citaId } });
   if (!cita) throw noEncontrado('Cita');
   if (!ESTADOS_RECORDABLES.includes(cita.estado)) throw conflicto('Esta cita ya no está pendiente.');

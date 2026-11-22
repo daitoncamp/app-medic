@@ -90,6 +90,7 @@ enum CaraDiente {
 enum CanalRecordatorio {
   CORREO
   WHATSAPP
+  SMS
 }
 
 enum EstadoRecordatorio {
