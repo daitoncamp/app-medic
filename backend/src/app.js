@@ -12,6 +12,7 @@ import { rutasAuth } from './routes/auth.js';
 import { rutasCitas } from './routes/citas.js';
 import { rutasConsultas } from './routes/consultas.js';
 import { rutasEnfermeria } from './routes/enfermeria.js';
+import { rutasRecordatorios } from './routes/recordatorios.js';
 import { rutasPacientes } from './routes/pacientes.js';
 import { rutasSalud } from './routes/salud.js';
 import { rutasUsuarios } from './routes/usuarios.js';
@@ -38,6 +39,7 @@ app.use('/api/pacientes', ...protegida, rutasPacientes);
 app.use('/api/citas', ...protegida, rutasCitas);
 app.use('/api/enfermeria', ...protegida, rutasEnfermeria);
 app.use('/api/consultas', ...protegida, rutasConsultas);
+app.use('/api/recordatorios', ...protegida, rutasRecordatorios);
 
 app.use(rutaNoEncontrada);
 app.use(manejarErrores);

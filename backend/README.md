@@ -148,6 +148,17 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/consultas/:citaId/consentimientos` | Odontología | `{ procedimiento, esRepresentante, firmante?: { nombre, cedula, parentesco }, aceptado: true }` |
 | `POST /api/consultas/:citaId/finalizar` | Odontología | La cita queda atendida |
 
+### Recordatorios
+
+| Ruta | Quién | Qué hace |
+|---|---|---|
+| `GET /api/recordatorios?fecha=` | Recepción, Admin | Citas pendientes o confirmadas de ese día (por defecto, mañana) y si ya se avisó |
+| `POST /api/recordatorios/:citaId/enviado` | Recepción, Admin | `{ canal: "WHATSAPP" }`. Registra quién avisó y cuándo |
+
+Recepción envía el mensaje desde su propio WhatsApp: la app abre `wa.me` con el texto listo
+(dirigido al representante si el paciente es menor de edad). No se usa ningún servicio de pago.
+El seed crea dos citas para mañana para probarlo.
+
 ### Odontograma
 
 Cada visita guarda sus propias marcas, del diente completo o por caras. Lo que se muestra es la marca

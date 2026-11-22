@@ -131,6 +131,15 @@ async function main() {
       creadaPorId: recepcion.id },
   ] });
 
+  // ===== Citas de mañana (para probar los recordatorios) =====
+  const manana = new Date(Date.parse(`${hoy}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  await prisma.cita.createMany({ data: [
+    { pacienteId: luis.id, inicio: enEcuador(manana, '08:30'), tipoConsulta: 'Restauración con resina', estado: 'PENDIENTE',
+      creadaPorId: recepcion.id },
+    { pacienteId: mateo.id, inicio: enEcuador(manana, '10:00'), tipoConsulta: 'Control', estado: 'PENDIENTE',
+      creadaPorId: recepcion.id },
+  ] });
+
   await prisma.auditoria.create({ data: {
     usuarioId: admin.id, accion: 'CREAR', entidad: 'Seed', detalle: { mensaje: 'Datos de prueba cargados' },
   } });
