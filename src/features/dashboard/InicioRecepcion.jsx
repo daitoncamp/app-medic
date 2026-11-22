@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  faCalendarCheck, faCalendarDay, faCalendarXmark, faClock, faPlus,
+  faBell, faCalendarCheck, faCalendarDay, faCalendarXmark, faClock, faPlus,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   BarChart, Button, Card, EmptyState, EstadoCita, PageHeader, StatCard, StatGrid,
@@ -8,6 +8,7 @@ import {
 import { useRecurso } from '../../hooks/useRecurso';
 import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
 import { listarCitas } from '../../services/recepcionApi';
+import { listarRecordatorios } from '../../services/recordatoriosApi';
 import { agendaPorHora, contarPorEstado } from './metricas';
 import styles from './Dashboard.module.css';
 
@@ -16,6 +17,8 @@ function InicioRecepcion({ sesion }) {
   const { datos: citas } = useRecurso(() => listarCitas({ fecha: fechaLocalISO() }), [], { intervalo: 30000, inicial: [] });
   const estados = contarPorEstado(citas);
   const proximas = citas.filter((c) => [ESTADOS_CITA.PENDIENTE, ESTADOS_CITA.CONFIRMADA].includes(c.estado));
+  // Recordatorios de mañana que aún no se envían
+  const { datos: recordatorios } = useRecurso(() => listarRecordatorios(), [], { intervalo: 60000 });
 
   return (
     <div className={styles.layout}>
@@ -31,6 +34,16 @@ function InicioRecepcion({ sesion }) {
         <StatCard icon={faClock} label="Pendientes de confirmar" value={estados[ESTADOS_CITA.PENDIENTE]} tone="warning" />
         <StatCard icon={faCalendarXmark} label="No asistieron" value={estados[ESTADOS_CITA.NO_ASISTIO]} tone="danger" />
       </StatGrid>
+
+      {recordatorios?.pendientes > 0 && (
+        <Card className={styles.reminder}>
+          <p>
+            <strong>{recordatorios.pendientes} {recordatorios.pendientes === 1 ? 'paciente tiene' : 'pacientes tienen'} cita mañana</strong>
+            {' '}y aún no {recordatorios.pendientes === 1 ? 'ha recibido' : 'han recibido'} recordatorio.
+          </p>
+          <Button as={Link} to="/recordatorios" size="sm" icon={faBell}>Enviar recordatorios</Button>
+        </Card>
+      )}
 
       <div className={styles.split}>
         <Card title="Agenda del día por hora" subtitle="Número de citas en cada franja horaria">

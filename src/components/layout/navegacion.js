@@ -1,5 +1,5 @@
 import {
-  faCalendarCheck, faHouse, faStethoscope, faTooth, faUserGear, faUsers,
+  faBell, faCalendarCheck, faHouse, faStethoscope, faTooth, faUserGear, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import { ROLES } from '../../services/authService';
 
@@ -8,6 +8,7 @@ import { ROLES } from '../../services/authService';
 export const RUTAS = {
   inicio: { path: '/inicio', label: 'Inicio', icon: faHouse, roles: Object.values(ROLES) },
   citas: { path: '/citas', label: 'Citas', icon: faCalendarCheck, roles: [ROLES.RECEPCIONISTA, ROLES.ADMIN] },
+  recordatorios: { path: '/recordatorios', label: 'Recordatorios', icon: faBell, roles: [ROLES.RECEPCIONISTA, ROLES.ADMIN] },
   enfermeria: { path: '/enfermeria', label: 'Enfermería', icon: faStethoscope, roles: [ROLES.ENFERMERA] },
   consulta: { path: '/consulta', label: 'Consulta', icon: faTooth, roles: [ROLES.ODONTOLOGA] },
   pacientes: { path: '/pacientes', label: 'Pacientes', icon: faUsers, roles: Object.values(ROLES) },

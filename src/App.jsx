@@ -7,6 +7,7 @@ import { ConfirmProvider, ToastProvider } from './components/ui';
 import LoginPage from './features/auth/LoginPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import CitasPage from './features/citas/CitasPage';
+import RecordatoriosPage from './features/recordatorios/RecordatoriosPage';
 import EnfermeriaPage from './features/enfermeria/EnfermeriaPage';
 import ConsultaPage from './features/consulta/ConsultaPage';
 import PacientesPage from './features/pacientes/PacientesPage';
@@ -54,6 +55,7 @@ function App() {
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               {conRoles(RUTAS.inicio, <DashboardPage />)}
               {conRoles(RUTAS.citas, <CitasPage />)}
+              {conRoles(RUTAS.recordatorios, <RecordatoriosPage />)}
               {conRoles(RUTAS.enfermeria, <EnfermeriaPage />)}
               {conRoles(RUTAS.consulta, <ConsultaPage />)}
               {conRoles(RUTAS.pacientes, <PacientesPage />)}
