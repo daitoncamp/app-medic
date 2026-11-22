@@ -53,6 +53,8 @@ const pacienteHaciaApi = (f) => ({
   sexo: SEXO_HACIA_API[f.sexo],
   telefono: f.telefono.trim(),
   correo: f.correo?.trim() || '',
+  contactoEmergenciaNombre: f.contactoEmergenciaNombre?.trim() || '',
+  contactoEmergenciaTelefono: f.contactoEmergenciaTelefono?.trim() || '',
 });
 
 /**
@@ -309,4 +311,12 @@ export async function registrarAntecedente(cedula, { tipo, descripcion }) {
 export async function actualizarAntecedente(cedula, id, cambios) {
   const r = await api(`/pacientes/${cedula}/antecedentes/${id}`, { method: 'PATCH', body: cambios });
   return r.antecedente;
+}
+
+// ==================== EDITAR PACIENTE ====================
+
+/** Actualiza los datos del paciente. cedulaActual es la de la URL (puede corregirse). */
+export async function actualizarPaciente(cedulaActual, form) {
+  const r = await api(`/pacientes/${cedulaActual}`, { method: 'PATCH', body: pacienteHaciaApi(form) });
+  return adaptarPaciente(r.paciente);
 }

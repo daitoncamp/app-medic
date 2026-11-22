@@ -89,6 +89,8 @@ export const reglasPaciente = {
   sexo: [(v) => requerido(v, 'Seleccione una opción.')],
   telefono: [requerido, validarTelefono],
   correo: [opcional(validarEmail)],
+  contactoEmergenciaNombre: [opcional(validarNombre)],
+  contactoEmergenciaTelefono: [opcional((v) => (/^0\d{8,9}$/.test(v) ? '' : 'Teléfono inválido (ej.: 0991234567).'))],
 };
 
 /** Mismas reglas que exige el servidor para una contraseña nueva */

@@ -1,7 +1,15 @@
 // Valores del formulario de paciente
 
 export const PACIENTE_VACIO = {
-  cedula: '', nombres: '', apellidos: '', fechaNacimiento: '', sexo: '', telefono: '', correo: '',
+  cedula: '',
+  nombres: '',
+  apellidos: '',
+  fechaNacimiento: '',
+  sexo: '',
+  telefono: '',
+  correo: '',
+  contactoEmergenciaNombre: '',
+  contactoEmergenciaTelefono: '',
 };
 
 /** Copia al formulario los datos de un paciente existente */
@@ -13,4 +21,6 @@ export const pacienteAFormulario = (p) => ({
   sexo: p.sexo || '',
   telefono: p.telefono || '',
   correo: p.correo || '',
+  contactoEmergenciaNombre: p.contactoEmergenciaNombre || '',
+  contactoEmergenciaTelefono: p.contactoEmergenciaTelefono || '',
 });

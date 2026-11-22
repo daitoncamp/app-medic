@@ -1,10 +1,15 @@
-import { Link, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faFileSignature, faHeartPulse, faPhone,
+  faArrowLeft, faCalendarCheck, faCircleExclamation, faEnvelope, faFileSignature, faHeartPulse, faPen, faPhone,
+  faUserShield,
   faPrescription, faTooth, faUserSlash,
 } from '@fortawesome/free-solid-svg-icons';
-import { AlertList, Button, Card, EmptyState, EstadoCita } from '../../components/ui';
+import {
+  AlertList, Button, Card, EmptyState, EstadoCita, useToast,
+} from '../../components/ui';
+import { obtenerSesion, ROLES } from '../../services/authService';
 import { useRecurso } from '../../hooks/useRecurso';
 import { obtenerFicha } from '../../services/recepcionApi';
 import { edadTexto, formatearFecha, formatearFechaHora, iniciales } from '../../utils/formato';
@@ -12,6 +17,7 @@ import { abreviaturaCara, ESTADOS_DIENTE } from '../consulta/dientes';
 import { estadosDePieza } from '../../utils/odontograma';
 import AntecedentesCard from './AntecedentesCard';
 import DocumentosPaciente from './DocumentosPaciente';
+import EditarPacienteModal from './EditarPacienteModal';
 import styles from './Pacientes.module.css';
 
 const TIPO_EVENTO = {
@@ -27,6 +33,11 @@ const TIPO_EVENTO = {
 function FichaPacientePage() {
   const { cedula } = useParams();
   const { datos: ficha, cargando, error, recargar } = useRecurso(() => obtenerFicha(cedula), [cedula]);
+  const [editando, setEditando] = useState(false);
+  const navigate = useNavigate();
+  const toast = useToast();
+  // Los datos personales los corrige recepción (o administración)
+  const puedeEditar = [ROLES.RECEPCIONISTA, ROLES.ADMIN].includes(obtenerSesion()?.rol);
 
   if (cargando && !ficha) {
     return <Card><EmptyState compact title="Cargando ficha…" /></Card>;
@@ -88,11 +99,26 @@ function FichaPacientePage() {
           </div>
         </div>
         <div className={styles.contact}>
+          {paciente.contactoEmergenciaNombre && (
+            <Button
+              as="a"
+              href={paciente.contactoEmergenciaTelefono ? `tel:${paciente.contactoEmergenciaTelefono}` : undefined}
+              variant="ghost"
+              size="sm"
+              icon={faUserShield}
+              title="Contacto de emergencia"
+            >
+              Emergencia: {paciente.contactoEmergenciaNombre}{paciente.contactoEmergenciaTelefono && ` · ${paciente.contactoEmergenciaTelefono}`}
+            </Button>
+          )}
           {paciente.telefono && (
             <Button as="a" href={`tel:${paciente.telefono}`} variant="secondary" size="sm" icon={faPhone}>{paciente.telefono}</Button>
           )}
           {paciente.correo && (
             <Button as="a" href={`mailto:${paciente.correo}`} variant="secondary" size="sm" icon={faEnvelope}>{paciente.correo}</Button>
+          )}
+          {puedeEditar && (
+            <Button size="sm" icon={faPen} onClick={() => setEditando(true)}>Editar datos</Button>
           )}
         </div>
 
@@ -172,6 +198,19 @@ function FichaPacientePage() {
           </Card>
         </div>
       </div>
+      {editando && (
+        <EditarPacienteModal
+          paciente={paciente}
+          onClose={() => setEditando(false)}
+          onGuardado={(actualizado) => {
+            setEditando(false);
+            toast.success('Datos del paciente actualizados.');
+            // Si se corrigió la cédula, la ficha cambia de dirección
+            if (actualizado.cedula !== cedula) navigate(`/pacientes/${actualizado.cedula}`, { replace: true });
+            else recargar();
+          }}
+        />
+      )}
     </>
   );
 }

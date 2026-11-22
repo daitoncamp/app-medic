@@ -49,6 +49,23 @@ function CamposPaciente({ form, errores, cambiar, onCedula, avisoCedula }) {
         </Field>
         <Field label="Correo (opcional)" type="email" placeholder="correo@ejemplo.com" value={form.correo} onChange={cambiar('correo')} error={errores.correo} />
       </FieldRow>
+      <FieldRow>
+        <Field
+          label="Contacto de emergencia (opcional)"
+          placeholder="Nombre y apellido"
+          value={form.contactoEmergenciaNombre}
+          onChange={cambiar('contactoEmergenciaNombre')}
+          error={errores.contactoEmergenciaNombre}
+        />
+        <Field
+          label="Teléfono del contacto"
+          inputMode="tel"
+          placeholder="09xxxxxxxx"
+          value={form.contactoEmergenciaTelefono}
+          onChange={(e) => cambiar('contactoEmergenciaTelefono')({ target: { value: e.target.value.replace(/\D/g, '').slice(0, 10) } })}
+          error={errores.contactoEmergenciaTelefono}
+        />
+      </FieldRow>
     </>
   );
 }
