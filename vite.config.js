@@ -11,4 +11,9 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
     },
   },
+  // Pruebas (npm test): reglas compartidas y lógica del frontend, sin navegador
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}', 'shared/**/*.test.js'],
+  },
 })

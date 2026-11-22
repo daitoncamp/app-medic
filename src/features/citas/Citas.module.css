@@ -121,3 +121,32 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+/* ===== Calendario ===== */
+.calNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.calTitulo {
+  margin-left: var(--space-2);
+  font-size: var(--text-base, 1rem);
+  font-weight: 700;
+}
+
+.detalle {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.detalleMotivo {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.detalleAcciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -1,0 +1,77 @@
+# Integración continua: en cada push y pull request se revisa el frontend
+# (lint, pruebas y build) y el backend (pruebas unitarias y de la API contra un
+# PostgreSQL 17 recién creado, con las migraciones y el seed).
+name: CI
+
+on:
+  push:
+    branches: [main, mejoras-produccion]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+        env:
+          TZ: America/Guayaquil
+      - run: npm run build
+
+  backend:
+    name: Backend y API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: clinica
+          POSTGRES_PASSWORD: clinica_ci
+          POSTGRES_DB: clinica_dental
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clinica"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://clinica:clinica_ci@localhost:5432/clinica_dental?schema=public
+      # Clave solo para CI (no es la de producción)
+      JWT_SECRET: ci-clave-temporal-de-pruebas-0123456789abcdef
+      NODE_ENV: test
+      SEED_PASSWORD: Clinica2026!
+      TZ: America/Guayaquil
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Tipos
+        run: npm run typecheck
+      - name: Migraciones
+        run: npx prisma migrate deploy
+      - name: Datos de prueba
+        run: npm run db:seed
+      - name: Pruebas (unitarias y de la API)
+        run: npm test
+        env:
+          RUN_API_TESTS: '1'

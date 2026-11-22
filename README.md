@@ -2,7 +2,7 @@
 
 Aplicación web para la clínica odontológica de la Uleam. Cada paciente pasa por tres etapas, y cada rol ve solo lo que le toca:
 
-1. **Recepción**: agenda, confirma y da seguimiento a las citas. Registra pacientes que llegan sin cita.
+1. **Recepción**: agenda (en lista o calendario), confirma y da seguimiento a las citas, envía recordatorios por WhatsApp y mantiene los datos de los pacientes. Registra pacientes que llegan sin cita.
 2. **Enfermería**: toma los signos vitales de los pacientes en espera. Las alergias generan alertas médicas.
 3. **Odontología**: diagnostica, marca el odontograma, genera recetas e historiales en PDF y finaliza la consulta.
 4. **Administración**: ve las métricas generales y gestiona los usuarios del personal.
@@ -32,7 +32,15 @@ npm run dev       # http://localhost:5173 (las llamadas a /api pasan al backend)
 npm run build     # compilación de producción en dist/
 npm run preview   # sirve la compilación localmente
 npm run lint      # revisa el código con ESLint
+npm test          # pruebas con Vitest (reglas clínicas compartidas y utilidades)
+npm run typecheck # revisa los tipos de TypeScript
 ```
+
+### Pruebas e integración continua
+
+- `npm test` en la raíz prueba las reglas de `shared/` (signos vitales, alergias, odontograma, procedimientos) y utilidades del frontend.
+- `npm test` en `backend/` prueba fechas, validaciones y el cierre del día. La prueba de la API (`backend/tests/api.test.js`) recorre el flujo completo contra PostgreSQL y solo corre con `RUN_API_TESTS=1`, porque modifica datos.
+- GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada push y pull request: lint, pruebas y build del frontend; y en el backend crea un PostgreSQL 17 vacío, aplica las migraciones, carga el seed y corre todas las pruebas, incluida la de la API.
 
 ## Usuarios de demostración
 
@@ -52,8 +60,8 @@ Los usuarios que crea el administrador reciben una contraseña temporal y deben 
 
 ```
 src/
-├── App.jsx                 rutas de la app
-├── main.jsx                punto de entrada
+├── App.tsx                 rutas de la app
+├── main.tsx                punto de entrada
 ├── styles/
 │   ├── tokens.css          variables de diseño (colores, espacios, color de cada rol)
 │   └── base.css            estilos globales mínimos
@@ -61,7 +69,7 @@ src/
 │   ├── ui/                 componentes reutilizables: Button, Card, Modal, ConfirmDialog,
 │   │                       Toast, Field, Table, Tabs, StatCard, BarChart, ...
 │   ├── layout/             AppLayout (menú lateral + barra superior) y menú por rol
-│   └── ProtectedRoute.jsx  protege las rutas según la sesión y el rol
+│   └── ProtectedRoute.tsx  protege las rutas según la sesión y el rol
 ├── features/               una carpeta por funcionalidad
 │   ├── auth/               inicio de sesión
 │   ├── dashboard/          Inicio de cada rol y cálculo de métricas
@@ -72,16 +80,23 @@ src/
 │   └── usuarios/           gestión de usuarios (administración)
 ├── hooks/                  useRecurso (carga de la API con actualización periódica) y useDiferido
 ├── services/
-│   ├── api.js              fetch a /api con la cookie de sesión y errores en español
-│   ├── authService.js      login, sesión, roles y usuarios
-│   ├── recepcionApi.js     pacientes, citas y ficha
-│   ├── enfermeriaApi.js    sala de espera y signos vitales
-│   ├── consultaApi.js      agenda, diagnósticos, odontograma, recetas
-│   └── clinica.js          constantes compartidas (estados de cita, fechas)
+│   ├── api.ts              fetch a /api con la cookie de sesión y errores en español
+│   ├── authService.ts      login, sesión, roles y usuarios
+│   ├── recepcionApi.ts     pacientes, citas y ficha
+│   ├── enfermeriaApi.ts    sala de espera y signos vitales
+│   ├── consultaApi.ts      agenda, diagnósticos, odontograma, recetas
+│   ├── recordatoriosApi.ts recordatorios por WhatsApp y SMS
+│   └── clinica.ts          constantes compartidas (estados de cita, fechas)
+├── types/
+│   ├── api.ts              forma del JSON que envía el backend
+│   └── dominio.ts          datos que usan las pantallas (Cita, Paciente, Alerta…)
 └── utils/                  validaciones y formatos de fecha
 shared/                     reglas que usan el frontend y el backend:
-├── signosVitales.js        rangos por edad y alertas
-└── alergias.js             aviso de alergia al recetar
+├── signosVitales.ts        rangos por edad y alertas
+├── alergias.ts             aviso de alergia al recetar
+├── procedimientos.ts       lista única de procedimientos y tipos de cita
+├── consentimientos.ts      plantillas del consentimiento informado
+└── odontograma.ts          combinación de marcas por diente y por caras
 ```
 
 ### Diseño
@@ -97,16 +112,16 @@ shared/                     reglas que usan el frontend y el backend:
 
 ## Backend
 
-El servidor está en la carpeta [`backend/`](backend/README.md) (Node.js + Express + PostgreSQL + Prisma).
+El servidor está en la carpeta [`backend/`](backend/README.md) (Node.js + Express + PostgreSQL + Prisma, en TypeScript).
 Sus instrucciones de instalación están en su propio README.
 
 Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
-3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales (hecho), 3.3 consulta, odontograma y recetas (hecho)
-4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
-5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
-6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript
+3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
+4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
+5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp y SMS, cierre automático del día y edición de pacientes (hecho)
+6. **Calidad**: pruebas con Vitest, CI en GitHub Actions, Prisma 7 y TypeScript en todo el proyecto (hecho)
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.
