@@ -4,6 +4,7 @@
 
 import { api } from './api';
 import { ESTADOS_CITA } from './clinica';
+import { normalizarProcedimiento } from '../utils/procedimientos';
 
 // ===== Estados de cita =====
 const ESTADO_DESDE_API = {
@@ -29,7 +30,8 @@ export const adaptarCita = (c) => ({
   id: c.id,
   fecha: c.fecha,
   hora: c.hora,
-  consulta: c.tipoConsulta,
+  // Los nombres antiguos guardados ("Limpieza dental") se muestran con el actual
+  consulta: normalizarProcedimiento(c.tipoConsulta),
   estado: ESTADO_DESDE_API[c.estado] || c.estado,
   motivoAnulacion: c.motivoAnulacion,
   llegadaEn: c.llegadaEn,
@@ -152,7 +154,7 @@ export const adaptarDiagnostico = (dx) => ({
   citaId: dx.citaId,
   piezas: dx.piezas,
   diente: dx.piezas.join(', '),
-  procedimiento: dx.procedimiento,
+  procedimiento: normalizarProcedimiento(dx.procedimiento),
   diagnostico: dx.descripcion,
   notas: dx.notas,
   estado: ESTADO_PROCEDIMIENTO[dx.estado] || dx.estado,
@@ -237,7 +239,7 @@ export async function obtenerFicha(cedula) {
       id: `cita-${c.id}`,
       tipo: 'cita',
       fecha: `${c.fecha}T${c.hora}`,
-      titulo: `Cita: ${c.tipoConsulta}`,
+      titulo: `Cita: ${normalizarProcedimiento(c.tipoConsulta)}`,
       detalle: `Estado: ${ESTADO_DESDE_API[c.estado]}${c.motivoAnulacion ? ` (${c.motivoAnulacion})` : ''}`,
     })),
     ...d.citas.filter((c) => c.signosVitales).map((c) => {

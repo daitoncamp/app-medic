@@ -4,8 +4,6 @@ import { api } from './api';
 import { adaptarAlerta, adaptarSignos, ordenarPorSeveridad } from './enfermeriaApi';
 import { adaptarCita, adaptarDiagnostico, adaptarReceta } from './recepcionApi';
 
-export const PROCEDIMIENTOS = ['Limpieza', 'Extracción', 'Resina', 'Corona', 'Endodoncia', 'Ortodoncia', 'Revisión'];
-
 export const ESTADOS_PROCEDIMIENTO = [
   { id: 'COMPLETADO', label: 'Completado' },
   { id: 'EN_PROCESO', label: 'En proceso (continúa en otra cita)' },

@@ -5,6 +5,9 @@ import { obtenerSesion } from '../../services/authService';
 import {
   MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, textoConsentimiento,
 } from '../../utils/consentimientos';
+import { agruparPorGrupo, PROCEDIMIENTOS } from '../../utils/procedimientos';
+
+const GRUPOS_CON_CONSENTIMIENTO = agruparPorGrupo(PROCEDIMIENTOS.filter((p) => p.consentimiento));
 import { requerido, validarCedula, validarFormulario, validarNombre } from '../../utils/validaciones';
 import styles from './Consulta.module.css';
 
@@ -89,8 +92,12 @@ function ConsentimientoModal({ paciente, procedimientoInicial, yaFirmados = [], 
     >
       <form id="form-consentimiento" onSubmit={enviar} noValidate className={styles.recipeForm}>
         <Field as="select" label="Procedimiento" value={procedimiento} onChange={(e) => setProcedimiento(e.target.value)} error={errores.procedimiento}>
-          {PROCEDIMIENTOS_CON_CONSENTIMIENTO.map((p) => (
-            <option key={p} value={p}>{p}{yaFirmados.includes(p) ? ' (ya registrado hoy)' : ''}</option>
+          {GRUPOS_CON_CONSENTIMIENTO.map((g) => (
+            <optgroup key={g.grupo} label={g.grupo}>
+              {g.items.map(({ nombre }) => (
+                <option key={nombre} value={nombre}>{nombre}{yaFirmados.includes(nombre) ? ' (ya registrado hoy)' : ''}</option>
+              ))}
+            </optgroup>
           ))}
         </Field>
 

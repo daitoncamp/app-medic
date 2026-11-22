@@ -11,10 +11,13 @@ import { useRecurso } from '../../hooks/useRecurso';
 import { obtenerSesion } from '../../services/authService';
 import {
   deshacerMarcasDeHoy, emitirReceta, ESTADOS_PROCEDIMIENTO, finalizarConsulta, marcarPieza,
-  obtenerAgenda, obtenerConsulta, PROCEDIMIENTOS, registrarConsentimiento, registrarDiagnostico,
+  obtenerAgenda, obtenerConsulta, registrarConsentimiento, registrarDiagnostico,
 } from '../../services/consultaApi';
 import { requiereConsentimiento } from '../../utils/consentimientos';
 import { combinarOdontograma } from '../../utils/odontograma';
+import {
+  agruparPorGrupo, normalizarProcedimiento, procedimientoParaCita, PROCEDIMIENTOS,
+} from '../../utils/procedimientos';
 import { TEXTO_ANTECEDENTE } from '../../services/recepcionApi';
 import { formatearFecha } from '../../utils/formato';
 import { requerido, validarFormulario } from '../../utils/validaciones';
@@ -36,9 +39,10 @@ const REGLAS = {
   notas: [(v) => (v.length > MAX_NOTAS ? `Máximo ${MAX_NOTAS} caracteres.` : '')],
 };
 
-// El tipo de consulta de recepción sugiere el procedimiento ("Limpieza dental" → "Limpieza")
-const procedimientoSugerido = (tipoConsulta = '') =>
-  PROCEDIMIENTOS.find((p) => tipoConsulta.toLowerCase().startsWith(p.toLowerCase())) || 'Revisión';
+const GRUPOS_PROCEDIMIENTO = agruparPorGrupo(PROCEDIMIENTOS);
+
+// El tipo de cita de recepción sugiere el procedimiento (urgencias y controles → Revisión)
+const procedimientoSugerido = (tipoConsulta = '') => procedimientoParaCita(tipoConsulta);
 
 const formularioVacio = (tipoConsulta) => ({
   diagnostico: '', diente: '', procedimiento: procedimientoSugerido(tipoConsulta), notas: '', estado: 'COMPLETADO',
@@ -270,7 +274,7 @@ function ConsultaPage() {
   const {
     paciente, historial, deEstaConsulta, antecedentes, recetas, consentimientos,
   } = detalle;
-  const procedimientosFirmados = consentimientos.map((c) => c.procedimiento);
+  const procedimientosFirmados = consentimientos.map((c) => normalizarProcedimiento(c.procedimiento));
   const necesitaConsentimiento = requiereConsentimiento(form.procedimiento) && form.estado !== 'PENDIENTE';
   const tieneConsentimiento = procedimientosFirmados.includes(form.procedimiento);
 
@@ -357,22 +361,18 @@ function ConsultaPage() {
                     <Field as="textarea" label="Diagnóstico" placeholder="Describa el hallazgo clínico…" value={form.diagnostico} onChange={cambiar('diagnostico')} error={errores.diagnostico} />
                     <FieldRow>
                       <Field label="Pieza(s) dental(es)" placeholder="16, 26" value={form.diente} onChange={cambiar('diente')} error={errores.diente} hint="Numeración FDI: 11-48 permanentes, 51-85 temporales." />
-                      <Field as="select" label="Procedimiento" value={form.procedimiento} onChange={cambiar('procedimiento')} error={errores.procedimiento}>
-                        {PROCEDIMIENTOS.map((p) => <option key={p}>{p}</option>)}
+                      <Field as="select" label="Procedimiento" value={form.procedimiento} onChange={cambiar('procedimiento')} error={errores.procedimiento} hint="* Requiere consentimiento informado.">
+                        {GRUPOS_PROCEDIMIENTO.map((g) => (
+                          <optgroup key={g.grupo} label={g.grupo}>
+                            {g.items.map((p) => (
+                              <option key={p.nombre} value={p.nombre}>
+                                {p.nombre}{p.consentimiento ? ' *' : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
                       </Field>
                     </FieldRow>
-                    <div className={styles.chips} aria-label="Procedimientos frecuentes">
-                      {PROCEDIMIENTOS.map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          className={`${styles.chip} ${form.procedimiento === p ? styles.chipActive : ''}`}
-                          onClick={() => setForm((f) => ({ ...f, procedimiento: p }))}
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </div>
                     {necesitaConsentimiento && (tieneConsentimiento ? (
                       <p className={styles.consentOk}>✓ Consentimiento informado de {form.procedimiento.toLowerCase()} registrado.</p>
                     ) : (

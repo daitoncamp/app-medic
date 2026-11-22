@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Button, Field, FieldRow, Modal } from '../../components/ui';
 import { ESTADOS_CITA, fechaLocalISO } from '../../services/clinica';
 import { buscarPacientePorCedula, erroresDeFormulario } from '../../services/recepcionApi';
+import { agruparPorGrupo, TIPOS_CITA } from '../../utils/procedimientos';
 import { requerido, reglasPaciente, validarFormulario } from '../../utils/validaciones';
 import CamposPaciente from './CamposPaciente';
 import { PACIENTE_VACIO, pacienteAFormulario } from './paciente';
 import styles from './Citas.module.css';
 
-const TIPOS_CONSULTA = ['Revisión', 'Limpieza dental', 'Extracción', 'Endodoncia', 'Ortodoncia', 'Resina', 'Corona'];
+// Tipos de cita agrupados (General, Prevención, Restauración…), del catálogo compartido
+const GRUPOS_CITA = agruparPorGrupo(TIPOS_CITA);
 
 const reglasCita = (editando) => ({
   ...reglasPaciente,
@@ -106,7 +108,11 @@ function CitaFormModal({ open, cita, onClose, onGuardar }) {
             <Field label="Hora" type="time" step="900" value={form.hora} onChange={cambiar('hora')} error={errores.hora} />
             <Field as="select" label="Tipo de consulta" value={form.consulta} onChange={cambiar('consulta')} error={errores.consulta}>
               <option value="">Seleccione…</option>
-              {TIPOS_CONSULTA.map((t) => <option key={t}>{t}</option>)}
+              {GRUPOS_CITA.map((g) => (
+                <optgroup key={g.grupo} label={g.grupo}>
+                  {g.items.map((t) => <option key={t.nombre}>{t.nombre}</option>)}
+                </optgroup>
+              ))}
             </Field>
           </FieldRow>
 
