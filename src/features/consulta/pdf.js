@@ -365,12 +365,18 @@ function carasPDF(doc, numero, marca, x, y, lado) {
  * estados: { [pieza]: { completa, caras } }. Si la pieza tiene caras marcadas,
  * la corona se dibuja con sus 5 caras.
  */
-function odontogramaPDF(doc, estados, y) {
-  const anchoDiente = 9.2;
+function arcadasPDF(doc, estados, y, denticion) {
+  const temporal = denticion === 'nino';
+  const porCuadrante = temporal ? 5 : 8;
+  const anchoDiente = temporal ? 12 : 9.2;
   const separacion = 1;
   const separacionCuadrante = 5;
-  const anchoArcada = 16 * anchoDiente + 14 * separacion + separacionCuadrante;
+  const anchoArcada = porCuadrante * 2 * anchoDiente + (porCuadrante * 2 - 2) * separacion + separacionCuadrante;
   const xInicio = MARGEN + (CONTENIDO - anchoArcada) / 2;
+
+  fuente(doc, 7, 'bold', C.tenue);
+  doc.text(temporal ? 'DENTICIÓN TEMPORAL (DE LECHE)' : 'DENTICIÓN PERMANENTE', MARGEN, y + 3);
+  y += 5;
 
   relleno(doc, [255, 247, 248]);
   trazo(doc, [246, 221, 226]);
@@ -396,7 +402,9 @@ function odontogramaPDF(doc, estados, y) {
         const principal = estadoDiente(estadoPrincipal(marca));
         const porCaras = Object.keys(marca?.caras || {}).length > 0;
         const tipo = tipoDiente(numero);
-        const anchoCorona = tipo === 'molar' ? anchoDiente : tipo === 'premolar' ? anchoDiente - 1.2 : anchoDiente - 2.6;
+        // En temporales el diente es más ancho en el papel, pero la corona conserva proporciones parecidas
+        const base = temporal ? anchoDiente - 2.4 : anchoDiente;
+        const anchoCorona = tipo === 'molar' ? base : tipo === 'premolar' ? base - 1.2 : base - 2.6;
         const xc = x + (anchoDiente - anchoCorona) / 2;
         // superior: raíz arriba, corona abajo (junto a la línea media)
         const yCorona = superior ? centro - 15.5 : centro + 7.5;
@@ -437,12 +445,44 @@ function odontogramaPDF(doc, estados, y) {
     });
   };
 
-  dibujarArcada(DIENTES.adulto.superior, true);
-  dibujarArcada(DIENTES.adulto.inferior, false);
+  dibujarArcada(DIENTES[denticion].superior, true);
+  dibujarArcada(DIENTES[denticion].inferior, false);
+  return y + 58;
+}
 
-  // Leyenda con totales
+/**
+ * Qué denticiones dibujar: la temporal en menores de 12 años o si hay piezas
+ * temporales marcadas; la permanente desde los 6 años (dentición mixta) o si
+ * hay piezas permanentes marcadas. En niños pequeños va primero la temporal.
+ */
+function denticionesParaPDF(estados, edad) {
+  const piezas = Object.keys(estados).map(Number);
+  const e = Number.isFinite(Number(edad)) && String(edad).trim() !== '' ? Number(edad) : null;
+  const temporal = piezas.some((n) => n >= 51) || (e !== null && e < 12);
+  const permanente = piezas.some((n) => n < 50) || e === null || e >= 6;
+  const lista = [];
+  if (temporal && e !== null && e < 6) lista.push('nino');
+  if (permanente) lista.push('adulto');
+  if (temporal && !lista.includes('nino')) lista.push('nino');
+  return lista.length ? lista : ['adulto'];
+}
+
+/**
+ * Odontograma completo del PDF (una o dos denticiones) con la leyenda.
+ * estados: { [pieza]: { completa, caras } }
+ */
+function odontogramaPDF(doc, estados, y, edad) {
+  denticionesParaPDF(estados, edad).forEach((denticion) => {
+    if (y + 64 > LIMITE_INFERIOR) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    y = arcadasPDF(doc, estados, y, denticion) + 4;
+  });
+
+  // Leyenda con totales (piezas por estado)
   let x = MARGEN;
-  const yLeyenda = y + 65;
+  const yLeyenda = y + 3;
   ESTADOS_DIENTE.forEach((e) => {
     const total = Object.values(estados).filter((m) => estadosDePieza(m).includes(e.id)).length;
     relleno(doc, hexARgb(e.fill));
@@ -547,9 +587,13 @@ export async function generarHistorialPDF(paciente, historial, { fecha = null, o
     y += Math.ceil(datos.length / 3) * 19 + 4;
   }
 
-  // Odontograma
+  // Odontograma (el título no se queda solo al final de la hoja)
+  if (y + 75 > LIMITE_INFERIOR) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
   y = seccion(doc, 'Odontograma', y);
-  y = odontogramaPDF(doc, odontograma, y);
+  y = odontogramaPDF(doc, odontograma, y, paciente.edad);
 
   // Tabla de procedimientos (si no cabe el título, la cabecera y una fila, empieza en otra hoja)
   if (y > ALTO - 55) {
