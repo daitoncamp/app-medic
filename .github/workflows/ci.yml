@@ -65,6 +65,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - name: Tipos
+        run: npm run typecheck
       - name: Migraciones
         run: npx prisma migrate deploy
       - name: Datos de prueba

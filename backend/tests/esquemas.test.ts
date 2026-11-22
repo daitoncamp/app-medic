@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { z } from 'zod';
 import {
   esPiezaFDI, esquemaCedula, esquemaPaciente, esquemaPiezas, esquemaProcedimiento, esquemaTipoCita,
-} from '../src/lib/esquemas.js';
+} from '../src/lib/esquemas.ts';
 
 const PACIENTE = {
   cedula: '1312345678', nombres: 'Ana', apellidos: 'Vera', fechaNacimiento: '1990-01-01', sexo: 'FEMENINO', telefono: '0991234567',
 };
 
-const error = (esquema, valor) => {
+const error = (esquema: z.ZodTypeAny, valor: unknown) => {
   const r = esquema.safeParse(valor);
   return r.success ? null : r.error.issues[0].message;
 };

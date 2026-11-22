@@ -4,7 +4,7 @@ import {
   NOMBRES_PROCEDIMIENTOS, NOMBRES_TIPOS_CITA, normalizarProcedimiento,
 } from '../../../shared/procedimientos.ts';
 
-const vacioANulo = (v) => (v === undefined ? undefined : v || null);
+const vacioANulo = (v: string | undefined): string | null | undefined => (v === undefined ? undefined : v || null);
 
 const SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ' ]+$/;
 
@@ -17,7 +17,7 @@ export const esquemaCedula = z
     return (provincia >= 1 && provincia <= 24) || provincia === 30;
   }, 'Los dos primeros dígitos no corresponden a una provincia.');
 
-const texto = (campo) => z
+const texto = (campo: string) => z
   .string({ required_error: `${campo} es obligatorio.` })
   .trim()
   .min(2, `${campo}: mínimo 2 letras.`)
@@ -50,25 +50,31 @@ export const esquemaPaciente = z.object({
     .transform(vacioANulo),
 });
 
-export const TIPOS_ANTECEDENTE = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'CIRUGIA', 'EMBARAZO', 'HABITO', 'OTRO'];
+export const TIPOS_ANTECEDENTE = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'CIRUGIA', 'EMBARAZO', 'HABITO', 'OTRO'] as const;
+
+/** Los textos que no sean un nombre se dejan pasar para que z.enum dé el mensaje */
+const normalizarSiEsTexto = (v: unknown): unknown => (typeof v === 'string' ? normalizarProcedimiento(v) : v);
+
+/** z.enum necesita al menos un elemento */
+export const comoEnum = (lista: string[]) => lista as [string, ...string[]];
 
 
 // ==================== CONSULTA ODONTOLÓGICA ====================
 
 // Los nombres antiguos guardados ("Limpieza dental", "Resina") se aceptan y se convierten al actual
 export const esquemaTipoCita = z.preprocess(
-  normalizarProcedimiento,
-  z.enum(NOMBRES_TIPOS_CITA, { errorMap: () => ({ message: 'Seleccione el tipo de consulta.' }) }),
+  normalizarSiEsTexto,
+  z.enum(comoEnum(NOMBRES_TIPOS_CITA), { errorMap: () => ({ message: 'Seleccione el tipo de consulta.' }) }),
 );
 
 export const esquemaProcedimiento = z.preprocess(
-  normalizarProcedimiento,
-  z.enum(NOMBRES_PROCEDIMIENTOS, { errorMap: () => ({ message: 'Elige un procedimiento de la lista.' }) }),
+  normalizarSiEsTexto,
+  z.enum(comoEnum(NOMBRES_PROCEDIMIENTOS), { errorMap: () => ({ message: 'Elige un procedimiento de la lista.' }) }),
 );
 
 
 /** Piezas válidas en numeración FDI (permanentes 11-48, temporales 51-85) */
-export const esPiezaFDI = (n) => {
+export const esPiezaFDI = (n: number): boolean => {
   const cuadrante = Math.floor(n / 10);
   const posicion = n % 10;
   if (cuadrante >= 1 && cuadrante <= 4) return posicion >= 1 && posicion <= 8;

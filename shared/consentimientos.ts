@@ -14,7 +14,7 @@ import { buscarProcedimiento, PROCEDIMIENTOS, type IdPlantilla } from './procedi
 
 export const MAYORIA_DE_EDAD = 18;
 
-export const PARENTESCOS = ['Madre', 'Padre', 'Representante legal', 'Tutor o curador'];
+export const PARENTESCOS = ['Madre', 'Padre', 'Representante legal', 'Tutor o curador'] as const;
 
 export interface Plantilla {
   descripcion: string;

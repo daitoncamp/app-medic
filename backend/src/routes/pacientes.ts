@@ -5,23 +5,25 @@
 //   PATCH /api/pacientes/:cedula           editar datos (recepción, administración)
 
 import { Router } from 'express';
+import type { Antecedente, Paciente, Prisma, Usuario } from '@prisma/client';
+import type { z as zod } from 'zod';
 import { resumirMarcas } from '../../../shared/odontograma.ts';
 import { z } from 'zod';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, noEncontrado } from '../lib/errores.js';
-import { fechaLocal } from '../lib/fechas.js';
-import { esquemaPaciente, TIPOS_ANTECEDENTE } from '../lib/esquemas.js';
-import { prisma } from '../lib/prisma.js';
-import { citaPublica, consentimientoPublico, pacienteResumen, recetaPublica } from '../lib/serializar.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, noEncontrado } from '../lib/errores.ts';
+import { fechaLocal } from '../lib/fechas.ts';
+import { esquemaPaciente, TIPOS_ANTECEDENTE } from '../lib/esquemas.ts';
+import { prisma, type Db } from '../lib/prisma.ts';
+import { citaPublica, consentimientoPublico, pacienteResumen, recetaPublica } from '../lib/serializar.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol, usuarioDe } from '../middlewares/auth.ts';
 
 export const rutasPacientes = Router();
 const puedeEditar = requiereRol('RECEPCIONISTA', 'ADMIN');
 // Los antecedentes los puede registrar cualquier persona del equipo clínico
 const puedeRegistrarAntecedentes = requiereRol('RECEPCIONISTA', 'ENFERMERA', 'ODONTOLOGA', 'ADMIN');
 
-const antecedentePublico = (a) => ({
+const antecedentePublico = (a: Antecedente & { registradoPor?: Pick<Usuario, 'nombre'> | null }) => ({
   id: a.id,
   tipo: a.tipo,
   descripcion: a.descripcion,
@@ -32,9 +34,11 @@ const antecedentePublico = (a) => ({
 });
 
 /** Minúsculas y sin tildes: "Macías" → "macias" */
-export const normalizar = (texto) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+export const normalizar = (texto: string): string => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-const datosPaciente = (d) => ({
+type DatosPaciente = zod.output<typeof esquemaPaciente>;
+
+const datosPaciente = (d: DatosPaciente) => ({
   textoBusqueda: normalizar(`${d.cedula} ${d.nombres} ${d.apellidos}`),
   cedula: d.cedula,
   nombres: d.nombres,
@@ -48,7 +52,7 @@ const datosPaciente = (d) => ({
 });
 
 /** Crea el paciente o actualiza sus datos si la cédula ya existe (lo usan también las citas) */
-export const guardarPaciente = (tx, datos) => tx.paciente.upsert({
+export const guardarPaciente = (tx: Db, datos: DatosPaciente): Promise<Paciente> => tx.paciente.upsert({
   where: { cedula: datos.cedula },
   create: datosPaciente(datos),
   update: datosPaciente(datos),
@@ -58,7 +62,7 @@ export const guardarPaciente = (tx, datos) => tx.paciente.upsert({
  * Filtro de Prisma para buscar pacientes: cada palabra debe aparecer en la
  * cédula, los nombres o los apellidos, sin importar tildes ni mayúsculas.
  */
-export const filtroBusqueda = (buscar = '') => {
+export const filtroBusqueda = (buscar = ''): Prisma.PacienteWhereInput => {
   const palabras = buscar.split(/\s+/).filter(Boolean);
   if (!palabras.length) return {};
   return {
@@ -66,8 +70,8 @@ export const filtroBusqueda = (buscar = '') => {
       OR: [
         { textoBusqueda: { contains: normalizar(p) } },
         // Pacientes guardados antes de existir textoBusqueda
-        { nombres: { contains: p, mode: 'insensitive' } },
-        { apellidos: { contains: p, mode: 'insensitive' } },
+        { nombres: { contains: p, mode: 'insensitive' as const } },
+        { apellidos: { contains: p, mode: 'insensitive' as const } },
         { cedula: { startsWith: p } },
       ],
     })),
@@ -107,7 +111,7 @@ rutasPacientes.get('/', async (req, res) => {
 
 rutasPacientes.get('/:cedula', async (req, res) => {
   const paciente = await prisma.paciente.findUnique({
-    where: { cedula: req.params.cedula },
+    where: { cedula: parametro(req.params.cedula) },
     include: {
       antecedentes: { include: { registradoPor: { select: { nombre: true } } }, orderBy: { creadoEn: 'asc' } },
       alertas: { orderBy: { creadoEn: 'desc' } },
@@ -175,7 +179,7 @@ rutasPacientes.post('/', puedeEditar, async (req, res) => {
 
 rutasPacientes.patch('/:cedula', puedeEditar, async (req, res) => {
   const datos = validar(esquemaPaciente, req.body);
-  const actual = await prisma.paciente.findUnique({ where: { cedula: req.params.cedula } });
+  const actual = await prisma.paciente.findUnique({ where: { cedula: parametro(req.params.cedula) } });
   if (!actual) throw noEncontrado('Paciente');
   if (datos.cedula !== actual.cedula) {
     const otro = await prisma.paciente.findUnique({ where: { cedula: datos.cedula } });
@@ -183,8 +187,8 @@ rutasPacientes.patch('/:cedula', puedeEditar, async (req, res) => {
   }
   const paciente = await prisma.paciente.update({ where: { id: actual.id }, data: datosPaciente(datos) });
   // La auditoría guarda qué campos cambiaron (no sus valores: son datos personales)
-  const comparable = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ?? null);
-  const campos = Object.keys(datos).filter((k) => datos[k] !== undefined
+  const comparable = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ?? null);
+  const campos = (Object.keys(datos) as (keyof DatosPaciente)[]).filter((k) => datos[k] !== undefined
     && comparable(k === 'fechaNacimiento' ? new Date(`${datos[k]}T00:00:00Z`) : datos[k]) !== comparable(actual[k]));
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Paciente', entidadId: paciente.id, detalle: { campos } });
   res.json({ paciente: pacienteResumen(paciente) });
@@ -209,7 +213,7 @@ const esquemaCambioAntecedente = z.object({
   vigente: z.boolean().optional(),
 }).refine((d) => d.descripcion !== undefined || d.vigente !== undefined, 'No hay cambios.');
 
-async function pacientePorCedula(cedula) {
+async function pacientePorCedula(cedula: string): Promise<Paciente> {
   const paciente = await prisma.paciente.findUnique({ where: { cedula } });
   if (!paciente) throw noEncontrado('Paciente');
   return paciente;
@@ -217,7 +221,7 @@ async function pacientePorCedula(cedula) {
 
 rutasPacientes.post('/:cedula/antecedentes', puedeRegistrarAntecedentes, async (req, res) => {
   const d = validar(esquemaAntecedente, req.body);
-  const paciente = await pacientePorCedula(req.params.cedula);
+  const paciente = await pacientePorCedula(parametro(req.params.cedula));
 
   // Evita duplicar el mismo antecedente vigente
   const repetido = await prisma.antecedente.findFirst({
@@ -228,7 +232,7 @@ rutasPacientes.post('/:cedula/antecedentes', puedeRegistrarAntecedentes, async (
   if (repetido) throw conflicto('Ese antecedente ya está registrado.');
 
   const antecedente = await prisma.antecedente.create({
-    data: { ...d, pacienteId: paciente.id, registradoPorId: req.usuario.id },
+    data: { ...d, pacienteId: paciente.id, registradoPorId: usuarioDe(req).id },
     include: { registradoPor: { select: { nombre: true } } },
   });
   await auditar(req, {
@@ -239,8 +243,8 @@ rutasPacientes.post('/:cedula/antecedentes', puedeRegistrarAntecedentes, async (
 
 rutasPacientes.patch('/:cedula/antecedentes/:id', puedeRegistrarAntecedentes, async (req, res) => {
   const d = validar(esquemaCambioAntecedente, req.body);
-  const paciente = await pacientePorCedula(req.params.cedula);
-  const actual = await prisma.antecedente.findFirst({ where: { id: req.params.id, pacienteId: paciente.id } });
+  const paciente = await pacientePorCedula(parametro(req.params.cedula));
+  const actual = await prisma.antecedente.findFirst({ where: { id: parametro(req.params.id), pacienteId: paciente.id } });
   if (!actual) throw noEncontrado('Antecedente');
 
   const antecedente = await prisma.antecedente.update({

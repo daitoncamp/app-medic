@@ -4,7 +4,7 @@
 
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma, type Rol } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -18,8 +18,8 @@ const PASSWORD = process.env.SEED_PASSWORD || 'Clinica2026!';
 
 // Fecha de hoy en Ecuador (UTC-5, sin horario de verano) en formato YYYY-MM-DD
 const hoyEcuador = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
-const enEcuador = (fecha, hora) => new Date(`${fecha}T${hora}:00-05:00`);
-const haceDias = (dias, hora) => {
+const enEcuador = (fecha: string, hora: string): Date => new Date(`${fecha}T${hora}:00-05:00`);
+const haceDias = (dias: number, hora: string): Date => {
   const d = new Date(`${hoyEcuador()}T12:00:00-05:00`);
   d.setUTCDate(d.getUTCDate() - dias);
   return enEcuador(d.toISOString().slice(0, 10), hora);
@@ -42,16 +42,16 @@ async function limpiar() {
   await prisma.usuario.deleteMany();
 }
 
-// Igual que en src/routes/pacientes.js
-const normalizar = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-const conBusqueda = (data) => ({ ...data, textoBusqueda: normalizar(`${data.cedula} ${data.nombres} ${data.apellidos}`) });
+// Igual que en src/routes/pacientes.ts
+const normalizar = (t: string): string => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const conBusqueda = (data: Omit<Prisma.PacienteCreateInput, 'textoBusqueda'>): Prisma.PacienteCreateInput => ({ ...data, textoBusqueda: normalizar(`${data.cedula} ${data.nombres} ${data.apellidos}`) });
 
 async function main() {
   await limpiar();
   const passwordHash = await bcrypt.hash(PASSWORD, 12);
 
   // ===== Usuarios =====
-  const crearUsuario = (nombre, email, rol) => prisma.usuario.create({
+  const crearUsuario = (nombre: string, email: string, rol: Rol) => prisma.usuario.create({
     data: { nombre, email, rol, passwordHash, debeCambiarPassword: false },
   });
   const admin = await crearUsuario('Administrador', 'admin@live.uleam.edu.ec', 'ADMIN');

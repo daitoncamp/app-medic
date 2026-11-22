@@ -1,11 +1,17 @@
 // ==================== FORMA DE LAS RESPUESTAS ====================
 // Convierte los registros de la base de datos en lo que recibe el frontend.
 
-import { calcularEdad, fechaLocal, horaLocal } from './fechas.js';
+import type {
+  Cita, Consentimiento, Paciente, Receta, RecetaMedicamento, Usuario,
+} from '@prisma/client';
+import { calcularEdad, fechaLocal, horaLocal } from './fechas.ts';
 
-export const nombreCompleto = (p) => `${p.nombres} ${p.apellidos}`;
+/** Relación opcional con quien registró (solo se usa el nombre) */
+type ConAutor = { odontologo?: Pick<Usuario, 'nombre'> | null };
 
-export const pacienteResumen = (p) => {
+export const nombreCompleto = (p: Pick<Paciente, 'nombres' | 'apellidos'>): string => `${p.nombres} ${p.apellidos}`;
+
+export const pacienteResumen = (p: Paciente) => {
   const edad = calcularEdad(p.fechaNacimiento);
   return {
     id: p.id,
@@ -24,7 +30,7 @@ export const pacienteResumen = (p) => {
   };
 };
 
-export const citaPublica = (c) => ({
+export const citaPublica = (c: Cita & { paciente?: Paciente | null }) => ({
   id: c.id,
   fecha: fechaLocal(c.inicio),
   hora: horaLocal(c.inicio),
@@ -41,7 +47,7 @@ export const citaPublica = (c) => ({
   ...(c.paciente ? { paciente: pacienteResumen(c.paciente) } : {}),
 });
 
-export const recetaPublica = (r) => ({
+export const recetaPublica = (r: Receta & ConAutor & { medicamentos: RecetaMedicamento[] }) => ({
   id: r.id,
   numero: r.numero,
   citaId: r.citaId,
@@ -54,7 +60,7 @@ export const recetaPublica = (r) => ({
   })),
 });
 
-export const consentimientoPublico = (c) => ({
+export const consentimientoPublico = (c: Consentimiento & ConAutor) => ({
   id: c.id,
   citaId: c.citaId,
   procedimiento: c.procedimiento,

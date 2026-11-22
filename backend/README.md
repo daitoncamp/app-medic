@@ -8,7 +8,7 @@ Node.js + Express 5 + PostgreSQL + Prisma 7.
 
 ## Requisitos
 
-- **Node.js 22.18 o superior** (`node -v`): las reglas de `shared/` están en TypeScript y Node las ejecuta directamente
+- **Node.js 22.18 o superior** (`node -v`): el backend está en TypeScript y Node ejecuta los `.ts` directamente, sin compilar
 - **PostgreSQL 15 o superior**, de una de estas dos formas:
   - **Opción A, Docker Desktop** (recomendada): no instalas PostgreSQL, se levanta con un comando.
   - **Opción B, PostgreSQL instalado en Windows**: desde https://www.postgresql.org/download/windows/
@@ -151,7 +151,7 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 ### Cierre automático del día
 
 Al arrancar y cada 15 minutos, el servidor cierra las citas de días anteriores que quedaron abiertas
-([`src/lib/cierreDia.js`](src/lib/cierreDia.js)):
+([`src/lib/cierreDia.ts`](src/lib/cierreDia.ts)):
 
 - **Pendiente → No asistió**: el paciente nunca llegó.
 - **Confirmada → Anulada**, con el motivo "el paciente llegó, pero no se registró su atención".
@@ -179,23 +179,23 @@ El seed crea dos citas para mañana para probarlo.
 Cada visita guarda sus propias marcas, del diente completo o por caras. Lo que se muestra es la marca
 más reciente de cada pieza y de cada cara, así que quitar una marca de hoy no borra la historia: la pieza
 vuelve a lo que tenía en la visita anterior. Un diente completo más reciente reemplaza a las caras anteriores.
-En una misma visita la pieza se registra completa o por caras. Las reglas están en [`shared/odontograma.js`](../shared/odontograma.js).
+En una misma visita la pieza se registra completa o por caras. Las reglas están en [`shared/odontograma.ts`](../shared/odontograma.ts).
 La API devuelve `{ [pieza]: { completa, caras: { OCLUSAL: "CARIES" } } }`.
 
 ### Consentimiento informado
 
-Los procedimientos marcados con `consentimiento: true` en [`shared/procedimientos.js`](../shared/procedimientos.js)
+Los procedimientos marcados con `consentimiento: true` en [`shared/procedimientos.ts`](../shared/procedimientos.ts)
 (restauraciones, pulpotomía, pulpectomía, endodoncia, raspado, extracción, cirugía de terceros molares,
 drenaje de absceso, corona, prótesis fija, ortodoncia y blanqueamiento) requieren consentimiento antes de
 registrarse como realizados (completado o en proceso); como pendientes (planificados) no lo necesitan.
-El texto sale de [`shared/consentimientos.js`](../shared/consentimientos.js) y se guarda tal cual se mostró.
+El texto sale de [`shared/consentimientos.ts`](../shared/consentimientos.ts) y se guarda tal cual se mostró.
 Si el paciente es menor de 18 años, la API exige que firme un representante. Se descarga un PDF para las firmas a mano,
 con un espacio de revocatoria. Los textos siguen las pautas del Acuerdo Ministerial 5316 del MSP,
 pero la clínica debe revisarlos y validarlos antes de usarlos con pacientes.
 
 ### Procedimientos y tipos de cita
 
-La lista única está en [`shared/procedimientos.js`](../shared/procedimientos.js), agrupada (Prevención,
+La lista única está en [`shared/procedimientos.ts`](../shared/procedimientos.ts), agrupada (Prevención,
 Restauración, Endodoncia, Periodoncia, Cirugía, Prótesis…). Los tipos de cita son esos procedimientos más
 Revisión, Urgencia y Control. Los nombres de versiones anteriores que ya estén guardados ("Limpieza dental",
 "Resina") se siguen aceptando y se muestran con el nombre actual, así que no hace falta migrar datos.
@@ -205,11 +205,11 @@ Revisión, Urgencia y Control. Los nombres de versiones anteriores que ya estén
 Una receta puede tener hasta 10 medicamentos (el formulario permite 5). No se editan: quedan con su número.
 Si un medicamento coincide con una alergia registrada (por nombre o por grupo, como penicilinas o AINE),
 la API responde 409 hasta que la odontóloga confirme con `confirmarAlergias: true`. La confirmación queda en la auditoría.
-Las reglas están en [`shared/alergias.js`](../shared/alergias.js). Es una ayuda: no reemplaza el criterio clínico.
+Las reglas están en [`shared/alergias.ts`](../shared/alergias.ts). Es una ayuda: no reemplaza el criterio clínico.
 
 ### Signos vitales y alertas
 
-Las reglas están en [`shared/signosVitales.js`](../shared/signosVitales.js), en la raíz del repositorio.
+Las reglas están en [`shared/signosVitales.ts`](../shared/signosVitales.ts), en la raíz del repositorio.
 El formulario las usa para la vista previa y la API para guardar, así que las dos siempre coinciden.
 La edad se calcula en el servidor con la fecha de nacimiento del paciente; no se confía en la que envíe el navegador.
 La frecuencia respiratoria (rangos PALS y criterio de la OMS en menores de 5 años; NEWS2 en adultos) y la
@@ -240,10 +240,11 @@ Por esa carpeta compartida, si algún día armas una imagen de Docker del backen
 | `npm run db:reset` | Borra toda la base, aplica las migraciones, regenera el cliente y ejecuta el seed |
 | `npm run db:studio` | Abre Prisma Studio para ver y editar datos |
 | `npm test` | Pruebas unitarias (fechas, validaciones, cierre del día) |
+| `npm run typecheck` | Revisa los tipos de TypeScript |
 
 ### Prueba de la API
 
-`tests/api.test.js` recorre el flujo recepción → enfermería → odontología con la API real
+`tests/api.test.ts` recorre el flujo recepción → enfermería → odontología con la API real
 y **modifica la base de datos**, así que no corre por defecto. GitHub Actions la ejecuta en
 una base vacía. Para correrla en tu PC, usa una base aparte, nunca la de desarrollo:
 
@@ -265,16 +266,17 @@ backend/
 ├── prisma/
 │   ├── schema.prisma    modelo de datos (tablas, relaciones, enums)
 │   ├── migrations/      historial de cambios de la base
-│   └── seed.js          datos de prueba
+│   └── seed.ts          datos de prueba
 ├── prisma.config.js     dirección de la base, migraciones y seed (Prisma 7)
 ├── tests/               pruebas con Vitest
 ├── src/
-│   ├── config/env.js    variables de entorno (falla al arrancar si falta alguna)
+│   ├── config/env.ts    variables de entorno (falla al arrancar si falta alguna)
 │   ├── lib/             cliente de Prisma y errores de la API
 │   ├── middlewares/     manejo central de errores
 │   ├── routes/          rutas de la API
-│   ├── app.js           aplicación Express (seguridad, CORS, JSON, rutas)
-│   └── server.js        arranque y cierre ordenado
+│   ├── app.ts           aplicación Express (seguridad, CORS, JSON, rutas)
+│   ├── types/          tipos propios (req.usuario)
+│   └── server.ts        arranque y cierre ordenado
 └── docker-compose.yml   PostgreSQL para desarrollo
 ```
 

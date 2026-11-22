@@ -4,31 +4,42 @@
 //                                            frecuenciaRespiratoria?, saturacion?, observaciones }
 //
 // Los signos se evalúan aquí, en el servidor, con la edad calculada a partir de
-// la fecha de nacimiento. Las reglas están en /shared/signosVitales.js, las
+// la fecha de nacimiento. Las reglas están en /shared/signosVitales.ts, las
 // mismas que usa el formulario para mostrar la vista previa.
 
 import { Router } from 'express';
+import type {
+  AlertaMedica, Paciente, Severidad, SignosVitales, TipoAlerta, TipoAntecedente, Usuario,
+} from '@prisma/client';
 import { z } from 'zod';
 import { alertasDeLaToma, leerPresion, validarMedicion } from '../../../shared/signosVitales.ts';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.js';
-import { calcularEdad, hoyLocal, rangoDia } from '../lib/fechas.js';
-import { prisma } from '../lib/prisma.js';
-import { citaPublica, nombreCompleto } from '../lib/serializar.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.ts';
+import { calcularEdad, hoyLocal, rangoDia } from '../lib/fechas.ts';
+import { prisma } from '../lib/prisma.ts';
+import { citaPublica, nombreCompleto } from '../lib/serializar.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol, usuarioDe } from '../middlewares/auth.ts';
 
 export const rutasEnfermeria = Router();
 
 const puedeVer = requiereRol('ENFERMERA', 'ODONTOLOGA', 'ADMIN');
 const puedeRegistrar = requiereRol('ENFERMERA', 'ADMIN');
 
-const TIPO_ALERTA = { signos: 'SIGNOS_VITALES', alergia: 'ALERGIA' };
+const TIPO_ALERTA: Record<'signos' | 'alergia', TipoAlerta> = { signos: 'SIGNOS_VITALES', alergia: 'ALERGIA' };
 
 // Antecedentes que enfermería debe ver antes de tomar los signos
-const ANTECEDENTES_RELEVANTES = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'EMBARAZO'];
+const ANTECEDENTES_RELEVANTES: TipoAntecedente[] = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'EMBARAZO'];
 
-export const signosPublicos = (s) => s && ({
+type SignosConAutor = SignosVitales & { registradoPor?: Pick<Usuario, 'nombre'> | null };
+
+export function signosPublicos(s: SignosConAutor): ReturnType<typeof formatoSignos>;
+export function signosPublicos(s: SignosConAutor | null): ReturnType<typeof formatoSignos> | null;
+export function signosPublicos(s: SignosConAutor | null) {
+  return s && formatoSignos(s);
+}
+
+const formatoSignos = (s: SignosConAutor) => ({
   id: s.id,
   presionSistolica: s.presionSistolica,
   presionDiastolica: s.presionDiastolica,
@@ -42,7 +53,7 @@ export const signosPublicos = (s) => s && ({
   registradoPor: s.registradoPor?.nombre,
 });
 
-export const alertaPublica = (a) => ({
+export const alertaPublica = (a: AlertaMedica & { paciente?: Paciente | null }) => ({
   id: a.id,
   citaId: a.citaId,
   tipo: a.tipo,
@@ -54,7 +65,7 @@ export const alertaPublica = (a) => ({
   ...(a.paciente ? { paciente: nombreCompleto(a.paciente), cedula: a.paciente.cedula } : {}),
 });
 
-const minutosEntre = (a, b) => Math.max(0, Math.round((b - a) / 60000));
+const minutosEntre = (a: Date, b: Date): number => Math.max(0, Math.round((b.getTime() - a.getTime()) / 60000));
 
 // ==================== SALA DE ESPERA ====================
 
@@ -104,7 +115,7 @@ rutasEnfermeria.get('/sala', puedeVer, async (req, res) => {
     where: { preparadaEn: { gte: desde, lt: hasta } },
     select: { llegadaEn: true, preparadaEn: true },
   });
-  const esperas = tomadasHoy.filter((c) => c.llegadaEn).map((c) => minutosEntre(c.llegadaEn, c.preparadaEn));
+  const esperas = tomadasHoy.flatMap((c) => (c.llegadaEn && c.preparadaEn ? [minutosEntre(c.llegadaEn, c.preparadaEn)] : []));
 
   res.json({
     enEspera: enEspera.map((c) => ({
@@ -150,7 +161,7 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
   const errores = validarMedicion(d);
   if (Object.keys(errores).length) throw solicitudInvalida('Revisa los signos vitales.', errores);
 
-  const cita = await prisma.cita.findUnique({ where: { id: req.params.id }, include: { paciente: true } });
+  const cita = await prisma.cita.findUnique({ where: { id: parametro(req.params.id) }, include: { paciente: true } });
   if (!cita) throw noEncontrado('Cita');
   if (cita.estado !== 'CONFIRMADA') {
     throw conflicto(cita.estado === 'PREPARADA'
@@ -158,12 +169,13 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
       : 'El paciente no está en la sala de espera.');
   }
 
-  const { sistolica, diastolica } = leerPresion(d.presion);
+  // validarMedicion ya comprobó que la presión se puede leer
+  const { sistolica, diastolica } = leerPresion(d.presion)!;
   const pulso = Number(d.pulso);
   const temperatura = Number(d.temperatura.replace(',', '.'));
   const edad = calcularEdad(cita.paciente.fechaNacimiento);
   const observaciones = d.observaciones || null;
-  const opcional = (v) => (v.trim() ? Number(v) : null);
+  const opcional = (v: string) => (v.trim() ? Number(v) : null);
   const frecuenciaRespiratoria = opcional(d.frecuenciaRespiratoria);
   const saturacion = opcional(d.saturacion);
   const hallazgos = alertasDeLaToma({
@@ -197,11 +209,11 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
         saturacionO2: saturacion,
         observaciones,
         edadMeses: edad.meses,
-        registradoPorId: req.usuario.id,
+        registradoPorId: usuarioDe(req).id,
       },
     });
 
-    const alertas = [];
+    const alertas: AlertaMedica[] = [];
     for (const h of hallazgos) {
       alertas.push(await tx.alertaMedica.create({
         data: {
@@ -210,7 +222,7 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
           signosVitalesId: signos.id,
           tipo: TIPO_ALERTA[h.tipo],
           signo: h.signo,
-          severidad: h.severidad.toUpperCase(),
+          severidad: h.severidad.toUpperCase() as Severidad,
           titulo: h.titulo,
           descripcion: h.descripcion,
         },
@@ -218,7 +230,7 @@ rutasEnfermeria.post('/citas/:id/signos', puedeRegistrar, async (req, res) => {
     }
 
     const actualizada = await tx.cita.findUnique({ where: { id: cita.id }, include: { paciente: true } });
-    return { cita: actualizada, signos, alertas };
+    return { cita: actualizada!, signos, alertas };
   });
 
   await auditar(req, {

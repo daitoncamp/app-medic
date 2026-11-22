@@ -5,17 +5,17 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
-import { config } from './config/env.js';
-import { autenticar, requierePasswordDefinitiva } from './middlewares/auth.js';
-import { manejarErrores, rutaNoEncontrada } from './middlewares/errores.js';
-import { rutasAuth } from './routes/auth.js';
-import { rutasCitas } from './routes/citas.js';
-import { rutasConsultas } from './routes/consultas.js';
-import { rutasEnfermeria } from './routes/enfermeria.js';
-import { rutasRecordatorios } from './routes/recordatorios.js';
-import { rutasPacientes } from './routes/pacientes.js';
-import { rutasSalud } from './routes/salud.js';
-import { rutasUsuarios } from './routes/usuarios.js';
+import { config } from './config/env.ts';
+import { autenticar, requierePasswordDefinitiva } from './middlewares/auth.ts';
+import { manejarErrores, rutaNoEncontrada } from './middlewares/errores.ts';
+import { rutasAuth } from './routes/auth.ts';
+import { rutasCitas } from './routes/citas.ts';
+import { rutasConsultas } from './routes/consultas.ts';
+import { rutasEnfermeria } from './routes/enfermeria.ts';
+import { rutasRecordatorios } from './routes/recordatorios.ts';
+import { rutasPacientes } from './routes/pacientes.ts';
+import { rutasSalud } from './routes/salud.ts';
+import { rutasUsuarios } from './routes/usuarios.ts';
 
 export const app = express();
 

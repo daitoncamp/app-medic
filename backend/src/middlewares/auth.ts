@@ -1,14 +1,16 @@
 // ==================== PROTECCIÓN DE RUTAS ====================
-import { prisma } from '../lib/prisma.js';
-import { noAutorizado, prohibido } from '../lib/errores.js';
-import { cerrarSesion, leerSesion } from '../lib/sesion.js';
+import type { NextFunction, Request, Response } from 'express';
+import type { Rol, Usuario } from '@prisma/client';
+import { prisma } from '../lib/prisma.ts';
+import { noAutorizado, prohibido } from '../lib/errores.ts';
+import { cerrarSesion, leerSesion } from '../lib/sesion.ts';
 
 /**
  * Exige una sesión válida. Consulta al usuario en cada petición para que
  * desactivarlo o cambiarle el rol tenga efecto inmediato.
  * Deja el usuario en req.usuario.
  */
-export async function autenticar(req, res, next) {
+export async function autenticar(req: Request, res: Response, next: NextFunction): Promise<void> {
   const sesion = leerSesion(req);
   if (!sesion) throw noAutorizado();
 
@@ -21,9 +23,15 @@ export async function autenticar(req, res, next) {
   next();
 }
 
+/** Usuario de la sesión en una ruta protegida (autenticar ya lo dejó en req.usuario) */
+export function usuarioDe(req: Request): Usuario {
+  if (!req.usuario) throw noAutorizado();
+  return req.usuario;
+}
+
 /** Solo deja pasar a los roles indicados: requiereRol('ADMIN', 'RECEPCIONISTA') */
-export const requiereRol = (...roles) => (req, res, next) => {
-  if (!roles.includes(req.usuario?.rol)) throw prohibido();
+export const requiereRol = (...roles: Rol[]) => (req: Request, _res: Response, next: NextFunction): void => {
+  if (!req.usuario || !roles.includes(req.usuario.rol)) throw prohibido();
   next();
 };
 
@@ -31,7 +39,7 @@ export const requiereRol = (...roles) => (req, res, next) => {
  * Mientras el usuario tenga una contraseña temporal, solo puede cambiarla.
  * Se aplica a todas las rutas protegidas excepto las de /auth.
  */
-export function requierePasswordDefinitiva(req, res, next) {
+export function requierePasswordDefinitiva(req: Request, _res: Response, next: NextFunction): void {
   if (req.usuario?.debeCambiarPassword) {
     throw prohibido('Debes cambiar tu contraseña temporal antes de continuar.');
   }

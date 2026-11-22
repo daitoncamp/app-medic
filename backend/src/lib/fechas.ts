@@ -7,30 +7,33 @@ export const OFFSET = '-05:00';
 const OFFSET_MS = -5 * 3600 * 1000;
 
 /** "2026-11-21" + "09:30" → instante (Date en UTC) */
-export const aInstante = (fecha, hora = '00:00') => new Date(`${fecha}T${hora}:00${OFFSET}`);
+export const aInstante = (fecha: string, hora = '00:00'): Date => new Date(`${fecha}T${hora}:00${OFFSET}`);
 
 /** Date → "2026-11-21" en Ecuador */
-export const fechaLocal = (date) => new Date(date.getTime() + OFFSET_MS).toISOString().slice(0, 10);
+export const fechaLocal = (date: Date): string => new Date(date.getTime() + OFFSET_MS).toISOString().slice(0, 10);
 
 /** Date → "09:30" en Ecuador */
-export const horaLocal = (date) => new Date(date.getTime() + OFFSET_MS).toISOString().slice(11, 16);
+export const horaLocal = (date: Date): string => new Date(date.getTime() + OFFSET_MS).toISOString().slice(11, 16);
 
-export const hoyLocal = (ahora = new Date()) => fechaLocal(ahora);
+export const hoyLocal = (ahora: Date = new Date()): string => fechaLocal(ahora);
 
 /** Inicio y fin (exclusivo) de un día de Ecuador */
-export const rangoDia = (fecha) => {
+export const rangoDia = (fecha: string): { desde: Date; hasta: Date } => {
   const desde = aInstante(fecha);
   return { desde, hasta: new Date(desde.getTime() + 24 * 3600 * 1000) };
 };
 
 /** Suma días a una fecha "YYYY-MM-DD" */
-export const sumarDias = (fecha, dias) => fechaLocal(new Date(aInstante(fecha, '12:00').getTime() + dias * 86400000));
+export const sumarDias = (fecha: string, dias: number): string => fechaLocal(new Date(aInstante(fecha, '12:00').getTime() + dias * 86400000));
 
 /**
  * Edad cumplida a una fecha de referencia.
  * Devuelve { anios, meses } (meses = total de meses, útil en bebés).
  */
-export const calcularEdad = (fechaNacimiento, referencia = new Date()) => {
+export const calcularEdad = (
+  fechaNacimiento: Date | string,
+  referencia: Date = new Date(),
+): { anios: number; meses: number } => {
   const nac = new Date(fechaNacimiento);
   const ref = new Date(referencia.getTime() + OFFSET_MS);
   let meses = (ref.getUTCFullYear() - nac.getUTCFullYear()) * 12 + (ref.getUTCMonth() - nac.getUTCMonth());

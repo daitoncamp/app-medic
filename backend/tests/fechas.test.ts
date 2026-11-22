@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   aInstante, calcularEdad, fechaLocal, horaLocal, hoyLocal, rangoDia, sumarDias,
-} from '../src/lib/fechas.js';
+} from '../src/lib/fechas.ts';
 
 describe('fechas en hora de Ecuador (UTC-5)', () => {
   it('convierte fecha y hora local a instante UTC', () => {

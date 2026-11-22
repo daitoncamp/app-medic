@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 const COSTO = 12;
 
-export const hashPassword = (texto) => bcrypt.hash(texto, COSTO);
-export const compararPassword = (texto, hash) => bcrypt.compare(texto, hash);
+export const hashPassword = (texto: string): Promise<string> => bcrypt.hash(texto, COSTO);
+export const compararPassword = (texto: string, hash: string): Promise<boolean> => bcrypt.compare(texto, hash);
 
 // Hash de una contraseña cualquiera: se compara contra él cuando el correo no existe,
 // para que la respuesta tarde lo mismo y no revele qué correos están registrados.

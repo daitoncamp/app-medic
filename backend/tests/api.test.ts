@@ -6,51 +6,58 @@
 // pruebas recién sembrada (es lo que hace GitHub Actions). No la ejecutes contra
 // la base de datos de desarrollo.
 
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
+
+/** Respuesta de la API: el JSON se revisa con expect, por eso se deja sin tipo */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = any;
 
 const activa = process.env.RUN_API_TESTS === '1';
 const PASSWORD = process.env.SEED_PASSWORD || 'Clinica2026!';
 
 describe.skipIf(!activa)('API de la clínica (integración)', () => {
-  let servidor;
-  let base;
-  let prisma;
-  let fechas;
+  let servidor: Server;
+  let base: string;
+  let prisma: PrismaClient;
+  let fechas: typeof import('../src/lib/fechas.ts');
 
   beforeAll(async () => {
-    const { app } = await import('../src/app.js');
-    ({ prisma } = await import('../src/lib/prisma.js'));
-    fechas = await import('../src/lib/fechas.js');
+    const { app } = await import('../src/app.ts');
+    ({ prisma } = await import('../src/lib/prisma.ts'));
+    fechas = await import('../src/lib/fechas.ts');
     servidor = app.listen(0);
     await new Promise((listo) => { servidor.once('listening', listo); });
-    base = `http://127.0.0.1:${servidor.address().port}/api`;
+    base = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}/api`;
   });
 
   afterAll(async () => {
-    await new Promise((listo) => { servidor?.close(listo); });
+    await new Promise((listo) => { servidor?.close(() => listo(null)); });
     await prisma?.$disconnect();
   });
 
   /** Cliente con su propia cookie de sesión */
   const cliente = () => {
     let cookie = '';
-    const pedir = async (metodo, ruta, cuerpo) => {
+    const pedir = async (metodo: string, ruta: string, cuerpo?: unknown): Promise<{ status: number; datos: Json }> => {
       const res = await fetch(base + ruta, {
         method: metodo,
         headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
         body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
       });
-      const nueva = res.headers.getSetCookie?.().find((c) => c.startsWith('clinica_sesion='));
+      const nueva = res.headers.getSetCookie?.().find((c: string) => c.startsWith('clinica_sesion='));
       if (nueva) cookie = nueva.split(';')[0];
       const texto = await res.text();
       return { status: res.status, datos: texto ? JSON.parse(texto) : null };
     };
     return {
-      get: (r) => pedir('GET', r),
-      post: (r, c = {}) => pedir('POST', r, c),
-      put: (r, c = {}) => pedir('PUT', r, c),
-      patch: (r, c = {}) => pedir('PATCH', r, c),
-      entrar: async (usuario) => {
+      get: (r: string) => pedir('GET', r),
+      post: (r: string, c: unknown = {}) => pedir('POST', r, c),
+      put: (r: string, c: unknown = {}) => pedir('PUT', r, c),
+      patch: (r: string, c: unknown = {}) => pedir('PATCH', r, c),
+      entrar: async (usuario: string) => {
         const r = await pedir('POST', '/auth/login', { email: `${usuario}@live.uleam.edu.ec`, password: PASSWORD });
         expect(r.status).toBe(200);
         return r.datos.usuario;
@@ -61,7 +68,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
   const recepcion = cliente();
   const enfermeria = cliente();
   const odontologia = cliente();
-  let citaMateo;
+  let citaMateo: Json;
 
   it('responde la salud del servicio y de la base de datos', async () => {
     const r = await cliente().get('/salud');
@@ -102,7 +109,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
   it('la búsqueda de pacientes no distingue tildes', async () => {
     const r = await recepcion.get('/pacientes?buscar=macias');
     expect(r.status).toBe(200);
-    expect(r.datos.pacientes.map((p) => p.cedula)).toContain('1309876543');
+    expect(r.datos.pacientes.map((p: Json) => p.cedula)).toContain('1309876543');
   });
 
   it('cada rol solo entra a lo suyo', async () => {
@@ -114,10 +121,10 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
     await enfermeria.entrar('enfermera');
     const sala = await enfermeria.get('/enfermeria/sala');
     expect(sala.status).toBe(200);
-    citaMateo = sala.datos.enEspera.find((c) => c.paciente.cedula === '1312345678');
+    citaMateo = sala.datos.enEspera.find((c: Json) => c.paciente.cedula === '1312345678');
     expect(citaMateo).toBeDefined();
     // Su alergia registrada llega a enfermería
-    expect(citaMateo.antecedentes.map((a) => a.descripcion)).toContain('Amoxicilina');
+    expect(citaMateo.antecedentes.map((a: Json) => a.descripcion)).toContain('Amoxicilina');
 
     // Errores de digitación: 400 con detalle por campo
     const malos = await enfermeria.post(`/enfermeria/citas/${citaMateo.id}/signos`, { presion: '80/90', pulso: 'x', temperatura: '' });
@@ -129,7 +136,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
       presion: '95/60', pulso: 130, temperatura: '38.6', frecuenciaRespiratoria: '24', observaciones: 'Niega otras alergias',
     });
     expect(r.status).toBe(201);
-    const titulos = r.datos.alertas.map((a) => a.titulo);
+    const titulos = r.datos.alertas.map((a: Json) => a.titulo);
     expect(titulos).toContain('Taquicardia');
     expect(titulos).toContain('Fiebre');
     expect(titulos).not.toContain('Alergia'); // "niega" no crea alerta
@@ -142,7 +149,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
   it('odontología: consentimiento antes del procedimiento', async () => {
     await odontologia.entrar('odontologa');
     const agenda = await odontologia.get('/consultas/agenda');
-    expect(agenda.datos.agenda.map((c) => c.id)).toContain(citaMateo.id);
+    expect(agenda.datos.agenda.map((c: Json) => c.id)).toContain(citaMateo.id);
 
     const diagnostico = {
       piezas: '84', procedimiento: 'Extracción', descripcion: 'Pieza temporal con movilidad', estado: 'COMPLETADO',
@@ -204,7 +211,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
 
     const ficha = await recepcion.get('/pacientes/1312345678');
     expect(ficha.status).toBe(200);
-    const cita = ficha.datos.citas.find((c) => c.id === citaMateo.id);
+    const cita = ficha.datos.citas.find((c: Json) => c.id === citaMateo.id);
     expect(cita.estado).toBe('ATENDIDA');
     expect(cita.consentimientos).toHaveLength(1);
     expect(cita.recetas).toHaveLength(1);
@@ -227,7 +234,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
     const cita = r.datos.citas[0];
     expect((await recepcion.post(`/recordatorios/${cita.id}/enviado`, { canal: 'SMS' })).status).toBe(201);
     const despues = await recepcion.get('/recordatorios');
-    expect(despues.datos.citas.find((c) => c.id === cita.id).recordatorio.canal).toBe('SMS');
+    expect(despues.datos.citas.find((c: Json) => c.id === cita.id).recordatorio.canal).toBe('SMS');
     expect(despues.datos.pendientes).toBe(r.datos.pendientes - 1);
   });
 
@@ -246,7 +253,7 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
   });
 
   it('el cierre del día cierra las citas abiertas de días anteriores', async () => {
-    const { cerrarDiasAnteriores } = await import('../src/lib/cierreDia.js');
+    const { cerrarDiasAnteriores } = await import('../src/lib/cierreDia.ts');
     const paciente = await prisma.paciente.findUnique({ where: { cedula: '1311122233' } });
     const usuario = await prisma.usuario.findFirst({ where: { rol: 'RECEPCIONISTA' } });
     const ayer = fechas.sumarDias(fechas.hoyLocal(), -1);

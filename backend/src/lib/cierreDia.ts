@@ -10,16 +10,18 @@
 // Se ejecuta al arrancar el servidor y cada 15 minutos; si no hay nada que
 // cerrar no hace nada, así que se puede ejecutar las veces que sea.
 
-import { auditar } from './auditoria.js';
-import { hoyLocal, rangoDia } from './fechas.js';
-import { prisma } from './prisma.js';
+import { auditar } from './auditoria.ts';
+import { hoyLocal, rangoDia } from './fechas.ts';
+import { prisma, type Db } from './prisma.ts';
 
 export const MOTIVO_SIN_ATENDER = 'Cierre automático del día: el paciente llegó, pero no se registró su atención.';
 
 const CADA_MINUTOS = 15;
 
 /** db se puede reemplazar en las pruebas por una base en memoria */
-export async function cerrarDiasAnteriores({ ahora = new Date(), db = prisma } = {}) {
+export async function cerrarDiasAnteriores(
+  { ahora = new Date(), db = prisma }: { ahora?: Date; db?: Db } = {},
+): Promise<{ noAsistieron: number; sinAtender: number }> {
   const { desde: inicioDeHoy } = rangoDia(hoyLocal(ahora));
   const anteriores = { inicio: { lt: inicioDeHoy } };
 
@@ -30,7 +32,9 @@ export async function cerrarDiasAnteriores({ ahora = new Date(), db = prisma } =
   if (!pendientes.length && !confirmadas.length) return { noAsistieron: 0, sinAtender: 0 };
 
   // El estado se vuelve a comprobar en el update por si alguien la cambió mientras tanto
-  const [noAsistieron, sinAtender] = await db.$transaction([
+  // Una transacción de lista solo existe en el cliente, no dentro de otra transacción
+  const cliente = db as typeof prisma;
+  const [noAsistieron, sinAtender] = await cliente.$transaction([
     db.cita.updateMany({
       where: { id: { in: pendientes.map((c) => c.id) }, estado: 'PENDIENTE' },
       data: { estado: 'NO_ASISTIO' },
@@ -54,7 +58,7 @@ export async function cerrarDiasAnteriores({ ahora = new Date(), db = prisma } =
 /** Ejecuta el cierre ahora y cada 15 minutos. Devuelve una función para detenerlo. */
 export function programarCierreDelDia() {
   const ejecutar = () => cerrarDiasAnteriores().catch((error) => {
-    console.error('No se pudo hacer el cierre del día:', error.message);
+    console.error('No se pudo hacer el cierre del día:', error instanceof Error ? error.message : error);
   });
   ejecutar();
   const temporizador = setInterval(ejecutar, CADA_MINUTOS * 60 * 1000);

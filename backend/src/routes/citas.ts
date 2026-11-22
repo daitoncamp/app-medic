@@ -10,24 +10,25 @@
 // Recepción y administración agendan y modifican; todos los roles pueden consultar.
 
 import { Router } from 'express';
+import type { Cita, EstadoCita, Prisma } from '@prisma/client';
 import { z } from 'zod';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.ts';
 import {
   esquemaFecha, esquemaHora, esquemaPaciente, esquemaTipoCita,
-} from '../lib/esquemas.js';
-import { aInstante, fechaLocal, hoyLocal, horaLocal, rangoDia } from '../lib/fechas.js';
-import { prisma } from '../lib/prisma.js';
-import { citaPublica } from '../lib/serializar.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
-import { filtroBusqueda, guardarPaciente } from './pacientes.js';
+} from '../lib/esquemas.ts';
+import { aInstante, fechaLocal, hoyLocal, horaLocal, rangoDia } from '../lib/fechas.ts';
+import { prisma } from '../lib/prisma.ts';
+import { citaPublica } from '../lib/serializar.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol, usuarioDe } from '../middlewares/auth.ts';
+import { filtroBusqueda, guardarPaciente } from './pacientes.ts';
 
 export const rutasCitas = Router();
 const puedeAgendar = requiereRol('RECEPCIONISTA', 'ADMIN');
 
 const DURACION_MIN = 30;
-const incluirPaciente = { paciente: true };
+const incluirPaciente = { paciente: true } as const;
 
 // ==================== CONSULTAR ====================
 
@@ -41,7 +42,7 @@ rutasCitas.get('/', async (req, res) => {
     buscar: z.string().trim().max(80).optional(),
   }), req.query);
 
-  const where = {};
+  const where: Prisma.CitaWhereInput = {};
   if (!q.todas) {
     if (q.desde || q.hasta) {
       where.inicio = {
@@ -68,7 +69,7 @@ rutasCitas.get('/', async (req, res) => {
 // ==================== AGENDAR ====================
 
 /** Lanza 409 si otra cita activa se cruza con el horario pedido */
-async function verificarHorario(inicio, duracionMin, ignorarId) {
+async function verificarHorario(inicio: Date, duracionMin: number, ignorarId?: string): Promise<void> {
   const fin = new Date(inicio.getTime() + duracionMin * 60000);
   const { desde, hasta } = rangoDia(fechaLocal(inicio));
   const delDia = await prisma.cita.findMany({
@@ -109,7 +110,7 @@ rutasCitas.post('/', puedeAgendar, async (req, res) => {
         estado: d.confirmar ? 'CONFIRMADA' : 'PENDIENTE',
         confirmadaEn: d.confirmar ? ahora : null,
         llegadaEn: d.confirmar ? ahora : null,
-        creadaPorId: req.usuario.id,
+        creadaPorId: usuarioDe(req).id,
       },
       include: incluirPaciente,
     });
@@ -133,7 +134,7 @@ rutasCitas.post('/sin-cita', puedeAgendar, async (req, res) => {
         confirmadaEn: ahora,
         llegadaEn: ahora,
         motivo: 'Paciente sin cita (registro rápido)',
-        creadaPorId: req.usuario.id,
+        creadaPorId: usuarioDe(req).id,
       },
       include: incluirPaciente,
     });
@@ -144,13 +145,13 @@ rutasCitas.post('/sin-cita', puedeAgendar, async (req, res) => {
 
 // ==================== MODIFICAR ====================
 
-const buscarCita = async (id) => {
+const buscarCita = async (id: string) => {
   const cita = await prisma.cita.findUnique({ where: { id }, include: incluirPaciente });
   if (!cita) throw noEncontrado('Cita');
   return cita;
 };
 
-const exigirEstado = (cita, permitidos, accion) => {
+const exigirEstado = (cita: Pick<Cita, 'estado'>, permitidos: EstadoCita[], accion: string): void => {
   if (!permitidos.includes(cita.estado)) {
     throw conflicto(`No se puede ${accion} una cita en estado ${cita.estado.toLowerCase().replace('_', ' ')}.`);
   }
@@ -165,7 +166,7 @@ const esquemaEditar = z.object({
 
 rutasCitas.patch('/:id', puedeAgendar, async (req, res) => {
   const d = validar(esquemaEditar, req.body);
-  const actual = await buscarCita(req.params.id);
+  const actual = await buscarCita(parametro(req.params.id));
   exigirEstado(actual, ['PENDIENTE', 'CONFIRMADA'], 'editar');
 
   const inicio = aInstante(d.fecha, d.hora);
@@ -184,7 +185,7 @@ rutasCitas.patch('/:id', puedeAgendar, async (req, res) => {
 });
 
 rutasCitas.post('/:id/confirmar', puedeAgendar, async (req, res) => {
-  const actual = await buscarCita(req.params.id);
+  const actual = await buscarCita(parametro(req.params.id));
   exigirEstado(actual, ['PENDIENTE'], 'confirmar');
   const ahora = new Date();
   const cita = await prisma.cita.update({
@@ -197,7 +198,7 @@ rutasCitas.post('/:id/confirmar', puedeAgendar, async (req, res) => {
 });
 
 rutasCitas.post('/:id/no-asistio', puedeAgendar, async (req, res) => {
-  const actual = await buscarCita(req.params.id);
+  const actual = await buscarCita(parametro(req.params.id));
   exigirEstado(actual, ['PENDIENTE', 'CONFIRMADA'], 'marcar como no asistió');
   const cita = await prisma.cita.update({
     where: { id: actual.id },
@@ -212,11 +213,11 @@ rutasCitas.post('/:id/anular', puedeAgendar, async (req, res) => {
   const { motivo } = validar(z.object({
     motivo: z.string({ required_error: 'Indica el motivo.' }).trim().min(5, 'Describe el motivo (mínimo 5 caracteres).').max(300),
   }), req.body);
-  const actual = await buscarCita(req.params.id);
+  const actual = await buscarCita(parametro(req.params.id));
   exigirEstado(actual, ['PENDIENTE', 'CONFIRMADA'], 'anular');
   const cita = await prisma.cita.update({
     where: { id: actual.id },
-    data: { estado: 'ANULADA', anuladaEn: new Date(), motivoAnulacion: motivo, anuladaPorId: req.usuario.id },
+    data: { estado: 'ANULADA', anuladaEn: new Date(), motivoAnulacion: motivo, anuladaPorId: usuarioDe(req).id },
     include: incluirPaciente,
   });
   await auditar(req, { accion: 'ANULAR', entidad: 'Cita', entidadId: cita.id, detalle: { motivo } });

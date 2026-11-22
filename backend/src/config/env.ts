@@ -4,7 +4,7 @@
 
 import 'dotenv/config';
 
-const requerida = (nombre) => {
+const requerida = (nombre: string): string => {
   const valor = process.env[nombre];
   if (!valor) {
     throw new Error(`Falta la variable de entorno ${nombre}. Revisa tu archivo .env (usa .env.example como guía).`);

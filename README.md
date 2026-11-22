@@ -112,7 +112,7 @@ shared/                     reglas que usan el frontend y el backend:
 
 ## Backend
 
-El servidor está en la carpeta [`backend/`](backend/README.md) (Node.js + Express + PostgreSQL + Prisma).
+El servidor está en la carpeta [`backend/`](backend/README.md) (Node.js + Express + PostgreSQL + Prisma, en TypeScript).
 Sus instrucciones de instalación están en su propio README.
 
 Plan de trabajo:
@@ -122,6 +122,6 @@ Plan de trabajo:
 3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
 4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
 5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp y SMS, cierre automático del día y edición de pacientes (hecho)
-6. **Calidad**: pruebas con Vitest, CI en GitHub Actions, Prisma 7 y TypeScript en el frontend y `shared/` (hecho); pendiente: TypeScript en el backend
+6. **Calidad**: pruebas con Vitest, CI en GitHub Actions, Prisma 7 y TypeScript en todo el proyecto (hecho)
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.

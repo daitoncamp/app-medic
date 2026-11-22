@@ -6,24 +6,25 @@
 // texto listo). Aquí solo se registra quién avisó y cuándo, para no repetir.
 
 import { Router } from 'express';
+import type { EstadoCita, Recordatorio } from '@prisma/client';
 import { z } from 'zod';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, noEncontrado } from '../lib/errores.js';
-import { esquemaFecha } from '../lib/esquemas.js';
-import { hoyLocal, rangoDia, sumarDias } from '../lib/fechas.js';
-import { prisma } from '../lib/prisma.js';
-import { citaPublica } from '../lib/serializar.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, noEncontrado } from '../lib/errores.ts';
+import { esquemaFecha } from '../lib/esquemas.ts';
+import { hoyLocal, rangoDia, sumarDias } from '../lib/fechas.ts';
+import { prisma } from '../lib/prisma.ts';
+import { citaPublica } from '../lib/serializar.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol } from '../middlewares/auth.ts';
 
 export const rutasRecordatorios = Router();
 
 const puedeRecordar = requiereRol('RECEPCIONISTA', 'ADMIN');
 
 // Solo se recuerdan las citas que siguen en pie
-const ESTADOS_RECORDABLES = ['PENDIENTE', 'CONFIRMADA'];
+const ESTADOS_RECORDABLES: EstadoCita[] = ['PENDIENTE', 'CONFIRMADA'];
 
-const recordatorioPublico = (r) => r && ({
+const recordatorioPublico = (r: Recordatorio | undefined) => r && ({
   id: r.id,
   canal: r.canal,
   estado: r.estado,
@@ -53,7 +54,7 @@ rutasRecordatorios.get('/', puedeRecordar, async (req, res) => {
 
 rutasRecordatorios.post('/:citaId/enviado', puedeRecordar, async (req, res) => {
   const { canal } = validar(z.object({ canal: z.enum(['WHATSAPP', 'SMS', 'CORREO']).default('WHATSAPP') }), req.body);
-  const cita = await prisma.cita.findUnique({ where: { id: req.params.citaId } });
+  const cita = await prisma.cita.findUnique({ where: { id: parametro(req.params.citaId) } });
   if (!cita) throw noEncontrado('Cita');
   if (!ESTADOS_RECORDABLES.includes(cita.estado)) throw conflicto('Esta cita ya no está pendiente.');
 

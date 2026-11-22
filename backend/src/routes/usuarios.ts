@@ -6,18 +6,18 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.js';
-import { esquemaPassword, hashPassword } from '../lib/password.js';
-import { prisma } from '../lib/prisma.js';
-import { usuarioPublico } from '../lib/sesion.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.ts';
+import { esquemaPassword, hashPassword } from '../lib/password.ts';
+import { prisma } from '../lib/prisma.ts';
+import { usuarioPublico } from '../lib/sesion.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol, usuarioDe } from '../middlewares/auth.ts';
 
 export const rutasUsuarios = Router();
 rutasUsuarios.use(requiereRol('ADMIN'));
 
-const ROLES = ['ADMIN', 'RECEPCIONISTA', 'ENFERMERA', 'ODONTOLOGA'];
+const ROLES = ['ADMIN', 'RECEPCIONISTA', 'ENFERMERA', 'ODONTOLOGA'] as const;
 
 rutasUsuarios.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({ orderBy: [{ activo: 'desc' }, { nombre: 'asc' }] });
@@ -53,11 +53,11 @@ const esquemaEstado = z.object({ activo: z.boolean({ required_error: 'Indique si
 
 rutasUsuarios.patch('/:id', async (req, res) => {
   const { activo } = validar(esquemaEstado, req.body);
-  const usuario = await prisma.usuario.findUnique({ where: { id: req.params.id } });
+  const usuario = await prisma.usuario.findUnique({ where: { id: parametro(req.params.id) } });
   if (!usuario) throw noEncontrado('Usuario');
 
   if (!activo) {
-    if (usuario.id === req.usuario.id) throw solicitudInvalida('No puedes desactivar tu propio usuario.');
+    if (usuario.id === usuarioDe(req).id) throw solicitudInvalida('No puedes desactivar tu propio usuario.');
     if (usuario.rol === 'ADMIN') {
       const adminsActivos = await prisma.usuario.count({ where: { rol: 'ADMIN', activo: true } });
       if (adminsActivos <= 1) throw solicitudInvalida('Debe quedar al menos un administrador activo.');
@@ -73,7 +73,7 @@ const esquemaRestablecer = z.object({ password: esquemaPassword });
 
 rutasUsuarios.post('/:id/restablecer-password', async (req, res) => {
   const { password } = validar(esquemaRestablecer, req.body);
-  const usuario = await prisma.usuario.findUnique({ where: { id: req.params.id } });
+  const usuario = await prisma.usuario.findUnique({ where: { id: parametro(req.params.id) } });
   if (!usuario) throw noEncontrado('Usuario');
 
   const actualizado = await prisma.usuario.update({

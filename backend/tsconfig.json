@@ -1,0 +1,22 @@
+{
+  // TypeScript del backend. Node (22.18+) ejecuta los .ts directamente quitando los
+  // tipos, así que no hay paso de compilación: tsc solo revisa (npm run typecheck).
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    // Lo que Node puede quitar sin traducir: nada de enum, namespace ni parámetros de clase
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "prisma", "tests", "../shared"],
+  "exclude": ["../shared/**/*.test.js"]
+}

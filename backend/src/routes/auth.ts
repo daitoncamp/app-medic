@@ -6,14 +6,14 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { config } from '../config/env.js';
-import { auditar } from '../lib/auditoria.js';
-import { ErrorApi, solicitudInvalida } from '../lib/errores.js';
-import { compararPassword, esquemaPassword, HASH_FALSO, hashPassword } from '../lib/password.js';
-import { prisma } from '../lib/prisma.js';
-import { cerrarSesion, crearSesion, usuarioPublico } from '../lib/sesion.js';
-import { validar } from '../lib/validar.js';
-import { autenticar } from '../middlewares/auth.js';
+import { config } from '../config/env.ts';
+import { auditar } from '../lib/auditoria.ts';
+import { ErrorApi, solicitudInvalida } from '../lib/errores.ts';
+import { compararPassword, esquemaPassword, HASH_FALSO, hashPassword } from '../lib/password.ts';
+import { prisma } from '../lib/prisma.ts';
+import { cerrarSesion, crearSesion, usuarioPublico } from '../lib/sesion.ts';
+import { validar } from '../lib/validar.ts';
+import { autenticar, usuarioDe } from '../middlewares/auth.ts';
 
 export const rutasAuth = Router();
 
@@ -30,7 +30,7 @@ rutasAuth.post('/login', async (req, res) => {
 
   // Usuario bloqueado por intentos fallidos
   if (usuario?.bloqueadoHasta && usuario.bloqueadoHasta > new Date()) {
-    const minutos = Math.ceil((usuario.bloqueadoHasta - Date.now()) / 60000);
+    const minutos = Math.ceil((usuario.bloqueadoHasta.getTime() - Date.now()) / 60000);
     await auditar(req, { accion: 'LOGIN_FALLIDO', entidad: 'Usuario', entidadId: usuario.id, usuarioId: usuario.id, detalle: { motivo: 'bloqueado' } });
     throw new ErrorApi(429, `Demasiados intentos fallidos. Intenta de nuevo en ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}.`);
   }
@@ -77,13 +77,13 @@ rutasAuth.post('/login', async (req, res) => {
 });
 
 rutasAuth.post('/logout', autenticar, async (req, res) => {
-  await auditar(req, { accion: 'LOGOUT', entidad: 'Usuario', entidadId: req.usuario.id });
+  await auditar(req, { accion: 'LOGOUT', entidad: 'Usuario', entidadId: usuarioDe(req).id });
   cerrarSesion(res);
   res.status(204).end();
 });
 
 rutasAuth.get('/yo', autenticar, (req, res) => {
-  res.json({ usuario: usuarioPublico(req.usuario) });
+  res.json({ usuario: usuarioPublico(usuarioDe(req)) });
 });
 
 const esquemaCambio = z.object({
@@ -93,14 +93,14 @@ const esquemaCambio = z.object({
 
 rutasAuth.post('/cambiar-password', autenticar, async (req, res) => {
   const { actual, nueva } = validar(esquemaCambio, req.body);
-  if (!(await compararPassword(actual, req.usuario.passwordHash))) {
+  if (!(await compararPassword(actual, usuarioDe(req).passwordHash))) {
     throw solicitudInvalida('Revisa los datos enviados.', { actual: 'La contraseña actual no es correcta.' });
   }
   if (actual === nueva) {
     throw solicitudInvalida('Revisa los datos enviados.', { nueva: 'Debe ser distinta de la actual.' });
   }
   const usuario = await prisma.usuario.update({
-    where: { id: req.usuario.id },
+    where: { id: usuarioDe(req).id },
     data: { passwordHash: await hashPassword(nueva), debeCambiarPassword: false },
   });
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Usuario', entidadId: usuario.id, detalle: { campo: 'password' } });

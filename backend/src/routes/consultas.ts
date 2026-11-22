@@ -14,6 +14,9 @@
 // la pieza vuelve a mostrar lo que tenía en la visita anterior.
 
 import { Router } from 'express';
+import type {
+  Cita, Diagnostico, EstadoCita, EstadoDiente, Usuario,
+} from '@prisma/client';
 import { z } from 'zod';
 import { revisarReceta } from '../../../shared/alergias.ts';
 import { CARAS, resumirMarcas } from '../../../shared/odontograma.ts';
@@ -21,19 +24,19 @@ import { normalizarProcedimiento } from '../../../shared/procedimientos.ts';
 import {
   MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, requiereConsentimiento, textoConsentimiento,
 } from '../../../shared/consentimientos.ts';
-import { auditar } from '../lib/auditoria.js';
-import { conflicto, ErrorApi, noEncontrado } from '../lib/errores.js';
+import { auditar } from '../lib/auditoria.ts';
+import { conflicto, ErrorApi, noEncontrado } from '../lib/errores.ts';
 import {
-  esquemaCedula, esquemaPieza, esquemaPiezas, esquemaProcedimiento,
-} from '../lib/esquemas.js';
-import { calcularEdad, fechaLocal, hoyLocal, rangoDia } from '../lib/fechas.js';
-import { prisma } from '../lib/prisma.js';
+  comoEnum, esquemaCedula, esquemaPieza, esquemaPiezas, esquemaProcedimiento,
+} from '../lib/esquemas.ts';
+import { calcularEdad, fechaLocal, hoyLocal, rangoDia } from '../lib/fechas.ts';
+import { prisma, type Db } from '../lib/prisma.ts';
 import {
   citaPublica, consentimientoPublico, nombreCompleto, recetaPublica,
-} from '../lib/serializar.js';
-import { validar } from '../lib/validar.js';
-import { requiereRol } from '../middlewares/auth.js';
-import { alertaPublica, signosPublicos } from './enfermeria.js';
+} from '../lib/serializar.ts';
+import { parametro, validar } from '../lib/validar.ts';
+import { requiereRol, usuarioDe } from '../middlewares/auth.ts';
+import { alertaPublica, signosPublicos } from './enfermeria.ts';
 
 export const rutasConsultas = Router();
 
@@ -41,11 +44,11 @@ export const rutasConsultas = Router();
 const puedeVer = requiereRol('ODONTOLOGA', 'ADMIN');
 const puedeAtender = requiereRol('ODONTOLOGA');
 
-const ESTADOS_DIENTE = ['SANO', 'CARIES', 'TRATADO', 'OBSERVACION', 'AUSENTE'];
+const ESTADOS_DIENTE = ['SANO', 'CARIES', 'TRATADO', 'OBSERVACION', 'AUSENTE'] as const satisfies readonly EstadoDiente[];
 
 // ==================== AYUDAS ====================
 
-const diagnosticoPublico = (d) => ({
+const diagnosticoPublico = (d: Diagnostico & { odontologo?: Pick<Usuario, 'nombre'> | null }) => ({
   id: d.id,
   citaId: d.citaId,
   piezas: d.piezas,
@@ -60,10 +63,10 @@ const diagnosticoPublico = (d) => ({
 
 
 /** Busca la cita y verifica que se pueda registrar en ella */
-async function citaEnConsulta(id, { permitirAtendida = false } = {}) {
+async function citaEnConsulta(id: string, { permitirAtendida = false } = {}) {
   const cita = await prisma.cita.findUnique({ where: { id }, include: { paciente: true } });
   if (!cita) throw noEncontrado('Cita');
-  const permitidos = permitirAtendida ? ['PREPARADA', 'ATENDIDA'] : ['PREPARADA'];
+  const permitidos: EstadoCita[] = permitirAtendida ? ['PREPARADA', 'ATENDIDA'] : ['PREPARADA'];
   if (!permitidos.includes(cita.estado)) {
     throw conflicto(cita.estado === 'ATENDIDA'
       ? 'Esta consulta ya fue finalizada.'
@@ -73,7 +76,7 @@ async function citaEnConsulta(id, { permitirAtendida = false } = {}) {
 }
 
 /** Odontograma: lo anterior a esta cita y lo marcado en ella, { pieza: estado } */
-async function odontogramaDeCita(cita) {
+async function odontogramaDeCita(cita: Pick<Cita, 'id' | 'pacienteId' | 'inicio'>) {
   const marcas = await prisma.marcaOdontograma.findMany({
     where: { pacienteId: cita.pacienteId },
     include: { cita: { select: { inicio: true } } },
@@ -113,10 +116,11 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
   ]);
 
   // Primero los de hoy en el orden en que los preparó enfermería; al final, los pendientes de otros días
-  const deHoy = (c) => c.inicio >= desde;
+  const deHoy = (c: Pick<Cita, 'inicio'>) => c.inicio >= desde;
   const ordenados = [...preparados].sort((a, b) => {
     if (deHoy(a) !== deHoy(b)) return deHoy(a) ? -1 : 1;
-    return deHoy(a) ? a.preparadaEn - b.preparadaEn : a.inicio - b.inicio;
+    const tiempo = (f: Date | null) => f?.getTime() ?? 0;
+    return deHoy(a) ? tiempo(a.preparadaEn) - tiempo(b.preparadaEn) : tiempo(a.inicio) - tiempo(b.inicio);
   });
 
   res.json({
@@ -132,7 +136,7 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
       atendidosHoy,
       conAlertas: preparados.filter((c) => deHoy(c) && c.alertas.length).length,
       // Los nombres antiguos ("Resina") se suman al actual
-      procedimientosMes: Object.entries(procedimientos.reduce((totales, p) => {
+      procedimientosMes: Object.entries(procedimientos.reduce<Record<string, number>>((totales, p) => {
         const nombre = normalizarProcedimiento(p.procedimiento);
         return { ...totales, [nombre]: (totales[nombre] || 0) + p._count._all };
       }, {}))
@@ -146,7 +150,7 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
 
 rutasConsultas.get('/:citaId', puedeVer, async (req, res) => {
   const cita = await prisma.cita.findUnique({
-    where: { id: req.params.citaId },
+    where: { id: parametro(req.params.citaId) },
     include: {
       paciente: {
         include: {
@@ -204,7 +208,7 @@ const esquemaDiagnostico = z.object({
 
 rutasConsultas.post('/:citaId/diagnosticos', puedeAtender, async (req, res) => {
   const d = validar(esquemaDiagnostico, req.body);
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
 
   // Un procedimiento que se realiza (no solo se planifica) necesita consentimiento previo
   if (requiereConsentimiento(d.procedimiento) && d.estado !== 'PENDIENTE') {
@@ -217,7 +221,7 @@ rutasConsultas.post('/:citaId/diagnosticos', puedeAtender, async (req, res) => {
   }
 
   const diagnostico = await prisma.diagnostico.create({
-    data: { ...d, citaId: cita.id, odontologoId: req.usuario.id },
+    data: { ...d, citaId: cita.id, odontologoId: usuarioDe(req).id },
     include: { odontologo: { select: { nombre: true } } },
   });
   await auditar(req, { accion: 'CREAR', entidad: 'Diagnostico', entidadId: diagnostico.id, detalle: { citaId: cita.id } });
@@ -230,11 +234,11 @@ rutasConsultas.put('/:citaId/odontograma/:pieza', puedeAtender, async (req, res)
   const { pieza } = validar(z.object({ pieza: esquemaPieza }), req.params);
   const { estado, cara } = validar(z.object({
     estado: z.enum(ESTADOS_DIENTE, { errorMap: () => ({ message: 'Estado de pieza inválido.' }) }),
-    cara: z.enum(['COMPLETA', ...CARAS], { errorMap: () => ({ message: 'Cara del diente inválida.' }) }).default('COMPLETA'),
+    cara: z.enum(['COMPLETA', ...CARAS] as const, { errorMap: () => ({ message: 'Cara del diente inválida.' }) }).default('COMPLETA'),
   }).refine((d) => d.estado !== 'AUSENTE' || d.cara === 'COMPLETA', {
     message: 'Una pieza ausente se marca completa, no por caras.', path: ['cara'],
   }), req.body);
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
 
   // En una misma visita, la pieza se registra completa o por caras, no las dos cosas
   await prisma.$transaction([
@@ -243,9 +247,9 @@ rutasConsultas.put('/:citaId/odontograma/:pieza', puedeAtender, async (req, res)
     }),
     prisma.marcaOdontograma.upsert({
       where: { citaId_pieza_cara: { citaId: cita.id, pieza, cara } },
-      update: { estado, registradoPorId: req.usuario.id },
+      update: { estado, registradoPorId: usuarioDe(req).id },
       create: {
-        pacienteId: cita.pacienteId, citaId: cita.id, pieza, cara, estado, registradoPorId: req.usuario.id,
+        pacienteId: cita.pacienteId, citaId: cita.id, pieza, cara, estado, registradoPorId: usuarioDe(req).id,
       },
     }),
   ]);
@@ -255,14 +259,14 @@ rutasConsultas.put('/:citaId/odontograma/:pieza', puedeAtender, async (req, res)
 
 rutasConsultas.delete('/:citaId/odontograma/:pieza', puedeAtender, async (req, res) => {
   const { pieza } = validar(z.object({ pieza: esquemaPieza }), req.params);
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
   await prisma.marcaOdontograma.deleteMany({ where: { citaId: cita.id, pieza } });
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Odontograma', entidadId: cita.id, detalle: { pieza, estado: null } });
   res.json({ odontograma: await odontogramaDeCita(cita) });
 });
 
 rutasConsultas.delete('/:citaId/odontograma', puedeAtender, async (req, res) => {
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
   const { count } = await prisma.marcaOdontograma.deleteMany({ where: { citaId: cita.id } });
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Odontograma', entidadId: cita.id, detalle: { limpiadas: count } });
   res.json({ odontograma: await odontogramaDeCita(cita) });
@@ -270,7 +274,7 @@ rutasConsultas.delete('/:citaId/odontograma', puedeAtender, async (req, res) => 
 
 // ==================== RECETAS ====================
 
-const textoReceta = (campo, max = 80) => z.string({ required_error: `${campo} es obligatorio.` }).trim()
+const textoReceta = (campo: string, max = 80) => z.string({ required_error: `${campo} es obligatorio.` }).trim()
   .min(1, `${campo} es obligatorio.`)
   .max(max, `Máximo ${max} caracteres.`)
   // "Cada 6-8 horas" es válido; "-3 días" no
@@ -292,7 +296,7 @@ const esquemaReceta = z.object({
 });
 
 /** Alergias conocidas del paciente: antecedentes vigentes y alertas de alergia */
-async function alergiasDelPaciente(pacienteId) {
+async function alergiasDelPaciente(pacienteId: string): Promise<string[]> {
   const [antecedentes, alertas] = await Promise.all([
     prisma.antecedente.findMany({ where: { pacienteId, vigente: true, tipo: 'ALERGIA' }, select: { descripcion: true } }),
     prisma.alertaMedica.findMany({ where: { pacienteId, tipo: 'ALERGIA' }, select: { descripcion: true } }),
@@ -301,7 +305,7 @@ async function alergiasDelPaciente(pacienteId) {
 }
 
 /** RX-20261121-0001: el número sigue la secuencia del día */
-async function siguienteNumero(tx) {
+async function siguienteNumero(tx: Db): Promise<string> {
   const dia = fechaLocal(new Date()).replace(/-/g, '');
   const prefijo = `RX-${dia}-`;
   const ultima = await tx.receta.findFirst({
@@ -313,10 +317,27 @@ async function siguienteNumero(tx) {
   return `${prefijo}${String(n).padStart(4, '0')}`;
 }
 
+interface DatosReceta {
+  citaId: string;
+  pacienteId: string;
+  odontologoId: string;
+  indicaciones: string | null;
+  medicamentos: { medicamento: string; dosis: string; frecuencia: string; duracion: string }[];
+}
+
+const crearReceta = async (tx: Db, { medicamentos, ...datos }: DatosReceta) => tx.receta.create({
+  data: {
+    ...datos,
+    numero: await siguienteNumero(tx),
+    medicamentos: { create: medicamentos.map((m, orden) => ({ ...m, orden })) },
+  },
+  include: { medicamentos: { orderBy: { orden: 'asc' } }, odontologo: { select: { nombre: true } } },
+});
+
 // También se puede emitir después de finalizar (desde la ficha del paciente)
 rutasConsultas.post('/:citaId/recetas', puedeAtender, async (req, res) => {
   const d = validar(esquemaReceta, req.body);
-  const cita = await citaEnConsulta(req.params.citaId, { permitirAtendida: true });
+  const cita = await citaEnConsulta(parametro(req.params.citaId), { permitirAtendida: true });
 
   // Posibles alergias: se exige confirmación explícita
   const coincidencias = revisarReceta(d.medicamentos, await alergiasDelPaciente(cita.pacienteId));
@@ -327,24 +348,22 @@ rutasConsultas.post('/:citaId/recetas', puedeAtender, async (req, res) => {
   }
 
   // Si dos recetas se emiten al mismo tiempo pueden pedir el mismo número: se reintenta
-  let receta;
+  let receta: Awaited<ReturnType<typeof crearReceta>> | undefined;
   for (let intento = 0; !receta; intento += 1) {
     try {
-      receta = await prisma.$transaction(async (tx) => tx.receta.create({
-        data: {
-          numero: await siguienteNumero(tx),
-          citaId: cita.id,
-          pacienteId: cita.pacienteId,
-          odontologoId: req.usuario.id,
-          indicaciones: d.indicaciones,
-          medicamentos: { create: d.medicamentos.map((m, orden) => ({ ...m, orden })) },
-        },
-        include: { medicamentos: { orderBy: { orden: 'asc' } }, odontologo: { select: { nombre: true } } },
+      receta = await prisma.$transaction(async (tx) => crearReceta(tx, {
+        citaId: cita.id,
+        pacienteId: cita.pacienteId,
+        odontologoId: usuarioDe(req).id,
+        indicaciones: d.indicaciones,
+        medicamentos: d.medicamentos,
       }));
     } catch (error) {
-      if (error.code !== 'P2002' || intento >= 4) throw error;
+      if ((error as { code?: string }).code !== 'P2002' || intento >= 4) throw error;
     }
   }
+  // El ciclo solo termina con la receta creada o lanzando el error
+  if (!receta) throw new Error('No se pudo numerar la receta.');
 
   await auditar(req, {
     accion: 'CREAR',
@@ -364,7 +383,7 @@ rutasConsultas.post('/:citaId/recetas', puedeAtender, async (req, res) => {
 // ==================== CONSENTIMIENTO INFORMADO ====================
 
 const esquemaConsentimiento = z.object({
-  procedimiento: z.enum(PROCEDIMIENTOS_CON_CONSENTIMIENTO, {
+  procedimiento: z.enum(comoEnum(PROCEDIMIENTOS_CON_CONSENTIMIENTO), {
     errorMap: () => ({ message: 'Este procedimiento no requiere consentimiento escrito.' }),
   }),
   esRepresentante: z.boolean().default(false),
@@ -379,7 +398,7 @@ const esquemaConsentimiento = z.object({
 
 rutasConsultas.post('/:citaId/consentimientos', puedeAtender, async (req, res) => {
   const d = validar(esquemaConsentimiento, req.body);
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
   const paciente = { nombre: nombreCompleto(cita.paciente), cedula: cita.paciente.cedula };
 
   // Los menores de edad firman a través de su representante
@@ -392,17 +411,18 @@ rutasConsultas.post('/:citaId/consentimientos', puedeAtender, async (req, res) =
   if (d.esRepresentante && !d.firmante) {
     throw new ErrorApi(400, 'Faltan los datos del representante.', { 'firmante.nombre': 'Escribe nombres y apellidos.' });
   }
-  if (d.esRepresentante && d.firmante.cedula === paciente.cedula) {
+  if (d.esRepresentante && d.firmante?.cedula === paciente.cedula) {
     throw new ErrorApi(400, 'El representante no puede ser el mismo paciente.', { 'firmante.cedula': 'Es la cédula del paciente.' });
   }
 
-  const firmante = d.esRepresentante ? d.firmante : { nombre: paciente.nombre, cedula: paciente.cedula };
+  // Si firma un representante, sus datos ya se comprobaron arriba
+  const firmante = d.esRepresentante && d.firmante ? d.firmante : { nombre: paciente.nombre, cedula: paciente.cedula };
   const textoAceptado = textoConsentimiento({
     procedimiento: d.procedimiento,
     paciente,
     firmante,
     esRepresentante: d.esRepresentante,
-    odontologo: req.usuario.nombre,
+    odontologo: usuarioDe(req).nombre,
   });
 
   const consentimiento = await prisma.consentimiento.create({
@@ -413,7 +433,7 @@ rutasConsultas.post('/:citaId/consentimientos', puedeAtender, async (req, res) =
       firmanteNombre: firmante.nombre,
       firmanteCedula: firmante.cedula,
       esRepresentante: d.esRepresentante,
-      odontologoId: req.usuario.id,
+      odontologoId: usuarioDe(req).id,
     },
     include: { odontologo: { select: { nombre: true } } },
   });
@@ -429,7 +449,7 @@ rutasConsultas.post('/:citaId/consentimientos', puedeAtender, async (req, res) =
 // ==================== FINALIZAR ====================
 
 rutasConsultas.post('/:citaId/finalizar', puedeAtender, async (req, res) => {
-  const cita = await citaEnConsulta(req.params.citaId);
+  const cita = await citaEnConsulta(parametro(req.params.citaId));
   const { count } = await prisma.cita.updateMany({
     where: { id: cita.id, estado: 'PREPARADA' },
     data: { estado: 'ATENDIDA', atendidaEn: new Date() },
@@ -437,5 +457,5 @@ rutasConsultas.post('/:citaId/finalizar', puedeAtender, async (req, res) => {
   if (!count) throw conflicto('Esta consulta ya fue finalizada.');
   const actualizada = await prisma.cita.findUnique({ where: { id: cita.id }, include: { paciente: true } });
   await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Cita', entidadId: cita.id, detalle: { estado: 'ATENDIDA' } });
-  res.json({ cita: citaPublica(actualizada) });
+  res.json({ cita: citaPublica(actualizada!) });
 });

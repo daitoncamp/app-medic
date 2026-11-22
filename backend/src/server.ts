@@ -1,7 +1,7 @@
-import { app } from './app.js';
-import { config } from './config/env.js';
-import { programarCierreDelDia } from './lib/cierreDia.js';
-import { prisma } from './lib/prisma.js';
+import { app } from './app.ts';
+import { config } from './config/env.ts';
+import { programarCierreDelDia } from './lib/cierreDia.ts';
+import { prisma } from './lib/prisma.ts';
 
 const servidor = app.listen(config.puerto, () => {
   console.log(`API de la clínica escuchando en http://localhost:${config.puerto}`);
@@ -11,7 +11,7 @@ const servidor = app.listen(config.puerto, () => {
 });
 
 // Cierre ordenado: termina las peticiones en curso y cierra la base de datos
-const cerrar = async (senal) => {
+const cerrar = async (senal: NodeJS.Signals) => {
   console.log(`\n${senal} recibido, cerrando…`);
   servidor.close(async () => {
     await prisma.$disconnect();
