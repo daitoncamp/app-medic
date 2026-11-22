@@ -2,7 +2,7 @@
 
 Aplicación web para la clínica odontológica de la Uleam. Cada paciente pasa por tres etapas, y cada rol ve solo lo que le toca:
 
-1. **Recepción**: agenda, confirma y da seguimiento a las citas. Registra pacientes que llegan sin cita.
+1. **Recepción**: agenda (en lista o calendario), confirma y da seguimiento a las citas, envía recordatorios por WhatsApp y mantiene los datos de los pacientes. Registra pacientes que llegan sin cita.
 2. **Enfermería**: toma los signos vitales de los pacientes en espera. Las alergias generan alertas médicas.
 3. **Odontología**: diagnostica, marca el odontograma, genera recetas e historiales en PDF y finaliza la consulta.
 4. **Administración**: ve las métricas generales y gestiona los usuarios del personal.
@@ -107,9 +107,9 @@ Plan de trabajo:
 
 1. **Base del backend**: estructura, modelo de datos y datos de prueba (hecho)
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
-3. API clínica y conexión del frontend: 3.1 pacientes y citas (hecho), 3.2 enfermería y signos vitales (hecho), 3.3 consulta, odontograma y recetas (hecho)
-4. Mejoras clínicas: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento, odontograma por caras
-5. Operación: agenda en calendario, recordatorios, cierre automático del día, edición de pacientes
+3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
+4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
+5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp, cierre automático del día y edición de pacientes (hecho)
 6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.
