@@ -23,11 +23,18 @@ const reglasCita = (editando) => ({
  * onGuardar(form) devuelve una promesa; si la API rechaza los datos, los errores se
  * muestran en cada campo.
  */
-function CitaFormModal({ open, cita, onClose, onGuardar }) {
+function CitaFormModal({ open, cita, fechaInicial, onClose, onGuardar }) {
   const editando = Boolean(cita);
   const [form, setForm] = useState(() => (cita
     ? { ...PACIENTE_VACIO, ...pacienteAFormulario(cita.datosPaciente || {}), fecha: cita.fecha, hora: cita.hora, consulta: cita.consulta, estado: cita.estado }
-    : { ...PACIENTE_VACIO, fecha: fechaLocalISO(), hora: '', consulta: '', estado: ESTADOS_CITA.PENDIENTE }));
+    : {
+      ...PACIENTE_VACIO,
+      // Desde el calendario llega el día elegido (nunca uno pasado)
+      fecha: fechaInicial && fechaInicial > fechaLocalISO() ? fechaInicial : fechaLocalISO(),
+      hora: '',
+      consulta: '',
+      estado: ESTADOS_CITA.PENDIENTE,
+    }));
   const [errores, setErrores] = useState({});
   const [errorGeneral, setErrorGeneral] = useState('');
   const [aviso, setAviso] = useState('');
