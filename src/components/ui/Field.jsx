@@ -7,7 +7,8 @@ import styles from './Field.module.css';
  *   <Field as="select" label="Sexo">...opciones...</Field>
  *   <Field as="textarea" label="Notas" />
  */
-function Field({ label, error, hint, as: Control = 'input', className = '', children, ...props }) {
+function Field({ label, error, hint, as = 'input', className = '', children, ...props }) {
+  const Control = as;
   const id = useId();
   const ayudaId = `${id}-ayuda`;
   return (

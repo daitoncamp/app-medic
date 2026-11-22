@@ -2,7 +2,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import styles from './Card.module.css';
 
 /** Contenedor blanco con borde. `title` y `actions` arman su encabezado. */
-function Card({ title, icon, iconTone = 'accent', subtitle, actions, children, className = '', padded = true, as: Componente = 'section' }) {
+function Card({ title, icon, iconTone = 'accent', subtitle, actions, children, className = '', padded = true, as = 'section' }) {
+  const Componente = as;
   return (
     <Componente className={`${styles.card} ${className}`}>
       {(title || actions) && (

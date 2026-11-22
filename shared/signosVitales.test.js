@@ -8,7 +8,6 @@ import {
 const NORMAL = { presion: '118/76', pulso: '72', temperatura: '36.5', edad: 30, sexo: 'Femenino' };
 
 const hallazgos = (cambios) => evaluarSignosVitales({ ...NORMAL, ...cambios });
-const titulos = (cambios) => hallazgos(cambios).map((h) => h.titulo);
 const uno = (cambios) => {
   const lista = hallazgos(cambios);
   expect(lista).toHaveLength(1);
