@@ -254,8 +254,9 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
 
   it('el cierre del día cierra las citas abiertas de días anteriores', async () => {
     const { cerrarDiasAnteriores } = await import('../src/lib/cierreDia.ts');
-    const paciente = await prisma.paciente.findUnique({ where: { cedula: '1311122233' } });
-    const usuario = await prisma.usuario.findFirst({ where: { rol: 'RECEPCIONISTA' } });
+    // Datos del seed: si faltan, la prueba falla con un mensaje claro
+    const paciente = await prisma.paciente.findUniqueOrThrow({ where: { cedula: '1311122233' } });
+    const usuario = await prisma.usuario.findFirstOrThrow({ where: { rol: 'RECEPCIONISTA' } });
     const ayer = fechas.sumarDias(fechas.hoyLocal(), -1);
     const vieja = await prisma.cita.create({
       data: {
@@ -264,6 +265,6 @@ describe.skipIf(!activa)('API de la clínica (integración)', () => {
     });
     const resultado = await cerrarDiasAnteriores();
     expect(resultado.noAsistieron).toBeGreaterThanOrEqual(1);
-    expect((await prisma.cita.findUnique({ where: { id: vieja.id } })).estado).toBe('NO_ASISTIO');
+    expect((await prisma.cita.findUniqueOrThrow({ where: { id: vieja.id } })).estado).toBe('NO_ASISTIO');
   });
 });
