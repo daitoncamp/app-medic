@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import {
   NOMBRES_PROCEDIMIENTOS, NOMBRES_TIPOS_CITA, normalizarProcedimiento,
-} from '../../../shared/procedimientos.js';
+} from '../../../shared/procedimientos.ts';
 
 const vacioANulo = (v) => (v === undefined ? undefined : v || null);
 

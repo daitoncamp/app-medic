@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coincidenciaAlergia, revisarReceta } from './alergias.js';
+import { coincidenciaAlergia, revisarReceta } from './alergias.ts';
 
 describe('coincidenciaAlergia', () => {
   it('detecta el mismo medicamento, sin importar tildes ni mayúsculas', () => {

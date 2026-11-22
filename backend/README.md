@@ -8,7 +8,7 @@ Node.js + Express 5 + PostgreSQL + Prisma 7.
 
 ## Requisitos
 
-- **Node.js 20.19 o superior** (`node -v`)
+- **Node.js 22.18 o superior** (`node -v`): las reglas de `shared/` están en TypeScript y Node las ejecuta directamente
 - **PostgreSQL 15 o superior**, de una de estas dos formas:
   - **Opción A, Docker Desktop** (recomendada): no instalas PostgreSQL, se levanta con un comando.
   - **Opción B, PostgreSQL instalado en Windows**: desde https://www.postgresql.org/download/windows/

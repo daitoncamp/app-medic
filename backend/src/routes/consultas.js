@@ -15,12 +15,12 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { revisarReceta } from '../../../shared/alergias.js';
-import { CARAS, resumirMarcas } from '../../../shared/odontograma.js';
-import { normalizarProcedimiento } from '../../../shared/procedimientos.js';
+import { revisarReceta } from '../../../shared/alergias.ts';
+import { CARAS, resumirMarcas } from '../../../shared/odontograma.ts';
+import { normalizarProcedimiento } from '../../../shared/procedimientos.ts';
 import {
   MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, requiereConsentimiento, textoConsentimiento,
-} from '../../../shared/consentimientos.js';
+} from '../../../shared/consentimientos.ts';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, ErrorApi, noEncontrado } from '../lib/errores.js';
 import {

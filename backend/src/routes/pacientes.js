@@ -5,7 +5,7 @@
 //   PATCH /api/pacientes/:cedula           editar datos (recepción, administración)
 
 import { Router } from 'express';
-import { resumirMarcas } from '../../../shared/odontograma.js';
+import { resumirMarcas } from '../../../shared/odontograma.ts';
 import { z } from 'zod';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, noEncontrado } from '../lib/errores.js';

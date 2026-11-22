@@ -11,7 +11,7 @@ import type {
 } from '../types/api';
 import type {
   Alerta, Antecedente, Cita, Diagnostico, Errores, EstadoCita, EstadoPieza, EventoFicha, FormularioCita,
-  FormularioPaciente, Odontograma, Paciente, Receta, Severidad, Signos, TipoAlerta,
+  FormularioPaciente, Odontograma, Paciente, PacienteListado, Receta, Severidad, Signos, TipoAlerta,
 } from '../types/dominio';
 
 // ===== Estados de cita =====
@@ -43,7 +43,7 @@ export const adaptarCita = (c: CitaApi): Cita => ({
   hora: c.hora,
   // Los nombres antiguos guardados ("Limpieza dental") se muestran con el actual
   consulta: normalizarProcedimiento(c.tipoConsulta),
-  estado: ESTADO_DESDE_API[c.estado] || c.estado,
+  estado: ESTADO_DESDE_API[c.estado],
   motivoAnulacion: c.motivoAnulacion,
   llegadaEn: c.llegadaEn,
   // Campos planos que usan las tablas y métricas
@@ -85,12 +85,14 @@ export const erroresDeFormulario = (error: ErrorApi): Errores => {
 
 export async function listarPacientes(
   { buscar = '', limite }: { buscar?: string; limite?: number } = {},
-): Promise<{ pacientes: Paciente[]; total: number }> {
+): Promise<{ pacientes: PacienteListado[]; total: number }> {
   const params = new URLSearchParams();
   if (buscar.trim()) params.set('buscar', buscar.trim());
   if (limite) params.set('limite', String(limite));
-  const { pacientes, total } = await api<{ pacientes: PacienteApi[]; total: number }>(`/pacientes?${params}`);
-  return { pacientes: pacientes.map((p) => adaptarPaciente(p)), total };
+  const { pacientes, total } = await api<{ pacientes: (PacienteApi & { citas: number; ultimaCita: string | null })[]; total: number }>(
+    `/pacientes?${params}`,
+  );
+  return { pacientes: pacientes.map((p) => ({ ...p, sexo: adaptarPaciente(p).sexo })), total };
 }
 
 /** Busca un paciente por cédula exacta (para completar formularios) */

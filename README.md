@@ -60,8 +60,8 @@ Los usuarios que crea el administrador reciben una contraseña temporal y deben 
 
 ```
 src/
-├── App.jsx                 rutas de la app
-├── main.jsx                punto de entrada
+├── App.tsx                 rutas de la app
+├── main.tsx                punto de entrada
 ├── styles/
 │   ├── tokens.css          variables de diseño (colores, espacios, color de cada rol)
 │   └── base.css            estilos globales mínimos
@@ -69,7 +69,7 @@ src/
 │   ├── ui/                 componentes reutilizables: Button, Card, Modal, ConfirmDialog,
 │   │                       Toast, Field, Table, Tabs, StatCard, BarChart, ...
 │   ├── layout/             AppLayout (menú lateral + barra superior) y menú por rol
-│   └── ProtectedRoute.jsx  protege las rutas según la sesión y el rol
+│   └── ProtectedRoute.tsx  protege las rutas según la sesión y el rol
 ├── features/               una carpeta por funcionalidad
 │   ├── auth/               inicio de sesión
 │   ├── dashboard/          Inicio de cada rol y cálculo de métricas
@@ -92,11 +92,11 @@ src/
 │   └── dominio.ts          datos que usan las pantallas (Cita, Paciente, Alerta…)
 └── utils/                  validaciones y formatos de fecha
 shared/                     reglas que usan el frontend y el backend:
-├── signosVitales.js        rangos por edad y alertas
-├── alergias.js             aviso de alergia al recetar
-├── procedimientos.js       lista única de procedimientos y tipos de cita
-├── consentimientos.js      plantillas del consentimiento informado
-└── odontograma.js          combinación de marcas por diente y por caras
+├── signosVitales.ts        rangos por edad y alertas
+├── alergias.ts             aviso de alergia al recetar
+├── procedimientos.ts       lista única de procedimientos y tipos de cita
+├── consentimientos.ts      plantillas del consentimiento informado
+└── odontograma.ts          combinación de marcas por diente y por caras
 ```
 
 ### Diseño
@@ -122,6 +122,6 @@ Plan de trabajo:
 3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
 4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
 5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp y SMS, cierre automático del día y edición de pacientes (hecho)
-6. **Calidad**: pruebas con Vitest, CI en GitHub Actions y Prisma 7 (hecho); pendiente: TypeScript
+6. **Calidad**: pruebas con Vitest, CI en GitHub Actions, Prisma 7 y TypeScript en el frontend y `shared/` (hecho); pendiente: TypeScript en el backend
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.

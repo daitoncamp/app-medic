@@ -66,6 +66,16 @@ export function obtenerSesion(): Usuario | null {
 }
 
 /**
+ * Sesión de las pantallas protegidas: <ProtectedRoute> ya comprobó que existe.
+ * Si no hubiera (no debería pasar), lanza un error en lugar de seguir con datos vacíos.
+ */
+export function sesionActual(): Usuario {
+  const sesion = obtenerSesion();
+  if (!sesion) throw new Error('No hay una sesión iniciada.');
+  return sesion;
+}
+
+/**
  * Inicia sesión. El rol lo decide el servidor.
  * Lanza un Error con el mensaje para mostrar si algo falla.
  */

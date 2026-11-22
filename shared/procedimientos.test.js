@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROCEDIMIENTOS_CON_CONSENTIMIENTO, PLANTILLAS, requiereConsentimiento, textoConsentimiento,
-} from './consentimientos.js';
+} from './consentimientos.ts';
 import {
   agruparPorGrupo, buscarProcedimiento, NOMBRES_PROCEDIMIENTOS, NOMBRES_TIPOS_CITA,
   normalizarProcedimiento, procedimientoParaCita, PROCEDIMIENTOS, TIPOS_CITA,
-} from './procedimientos.js';
+} from './procedimientos.ts';
 
 describe('catálogo de procedimientos', () => {
   it('no tiene nombres repetidos', () => {

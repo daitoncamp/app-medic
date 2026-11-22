@@ -11,14 +11,13 @@
     "strict": true,
     "noEmit": true,
     "isolatedModules": true,
+    // shared/ se importa con extensión .ts para que el backend lo use directo en Node
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
-    // Mientras dure la migración, los archivos .js/.jsx que faltan se importan sin revisarse
-    "allowJs": true,
-    "checkJs": false
+    "noUncheckedSideEffectImports": true
   },
   "include": ["src", "shared"]
 }

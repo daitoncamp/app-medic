@@ -23,6 +23,9 @@ export type Usuario = Omit<UsuarioApi, 'rol'> & { rol: Rol };
 
 export type Paciente = Omit<PacienteApi, 'sexo'> & { sexo: Sexo | string };
 
+/** Paciente en el listado: con número de citas y fecha de la última */
+export type PacienteListado = Paciente & { citas: number; ultimaCita: string | null };
+
 /** Valores del formulario de paciente (todo como texto) */
 export interface FormularioPaciente {
   cedula: string;
@@ -41,7 +44,7 @@ export interface FormularioCita extends FormularioPaciente {
   fecha: string;
   hora: string;
   consulta: string;
-  estado?: EstadoCita;
+  estado?: string;
 }
 
 export interface Cita {
@@ -50,7 +53,7 @@ export interface Cita {
   hora: string;
   /** Tipo de consulta o procedimiento */
   consulta: string;
-  estado: EstadoCita | string;
+  estado: EstadoCita;
   motivoAnulacion: string | null;
   llegadaEn: FechaISO | null;
   // Campos planos para tablas y métricas

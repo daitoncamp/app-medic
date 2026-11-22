@@ -16,6 +16,12 @@ export class ErrorApi extends Error {
   }
 }
 
+/** Cualquier error capturado (catch) como ErrorApi, para leer status, message y detalles */
+export const comoErrorApi = (e: unknown): ErrorApi => {
+  if (e instanceof ErrorApi) return e;
+  return new ErrorApi(0, e instanceof Error ? e.message : String(e));
+};
+
 const BASE: string = import.meta.env?.VITE_API_URL || '/api';
 
 /**

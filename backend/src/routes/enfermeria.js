@@ -9,7 +9,7 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { alertasDeLaToma, leerPresion, validarMedicion } from '../../../shared/signosVitales.js';
+import { alertasDeLaToma, leerPresion, validarMedicion } from '../../../shared/signosVitales.ts';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.js';
 import { calcularEdad, hoyLocal, rangoDia } from '../lib/fechas.js';

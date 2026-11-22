@@ -102,8 +102,9 @@ export async function obtenerConsulta(citaId: string) {
     // Forma que usan la cabecera y los PDF
     paciente: {
       id: d.cita.id,
-      nombre: cita.paciente,
-      cedula: cita.cedula,
+      // La consulta siempre trae al paciente
+      nombre: cita.paciente ?? '',
+      cedula: cita.cedula ?? '',
       edad: cita.edad,
       sexo: cita.datosPaciente?.sexo,
       fechaNacimiento: cita.datosPaciente?.fechaNacimiento,

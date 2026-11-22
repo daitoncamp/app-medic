@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react';
+import { comoErrorApi, type ErrorApi } from '../services/api';
 
 /**
  * Carga datos de la API y los mantiene al día.
@@ -7,14 +8,32 @@ import { useCallback, useEffect, useRef, useState, type DependencyList } from 'r
  * - `deps`: cuando cambian, se vuelve a cargar.
  * - `intervalo`: recarga periódica (ms) para ver lo que hacen otras computadoras.
  */
+export interface Recurso<D> {
+  datos: D;
+  cargando: boolean;
+  error: ErrorApi | null;
+  recargar: () => Promise<void>;
+}
+
+// Con `inicial`, `datos` nunca es null; sin él, es null hasta la primera respuesta
+export function useRecurso<T>(
+  cargar: () => Promise<T>,
+  deps: DependencyList,
+  opciones: { intervalo?: number; inicial: T },
+): Recurso<T>;
+export function useRecurso<T>(
+  cargar: () => Promise<T>,
+  deps?: DependencyList,
+  opciones?: { intervalo?: number },
+): Recurso<T | null>;
 export function useRecurso<T>(
   cargar: () => Promise<T>,
   deps: DependencyList = [],
   { intervalo, inicial = null }: { intervalo?: number; inicial?: T | null } = {},
-) {
+): Recurso<T | null> {
   const [datos, setDatos] = useState<T | null>(inicial);
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<ErrorApi | null>(null);
   // Siempre se usa la versión más reciente de `cargar` (con los filtros actuales)
   const cargarRef = useRef(cargar);
   useEffect(() => {
@@ -32,7 +51,7 @@ export function useRecurso<T>(
         setError(null);
       }
     } catch (e) {
-      if (mio === turno.current) setError(e instanceof Error ? e : new Error(String(e)));
+      if (mio === turno.current) setError(comoErrorApi(e));
     } finally {
       if (mio === turno.current) setCargando(false);
     }

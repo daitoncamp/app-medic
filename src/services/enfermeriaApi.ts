@@ -99,3 +99,5 @@ export async function registrarSignos(citaId: string, {
   });
   return { cita: adaptarCita(r.cita), alertas: ordenarPorSeveridad(r.alertas.map(adaptarAlerta)) };
 }
+
+export type Sala = Awaited<ReturnType<typeof obtenerSala>>;

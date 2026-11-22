@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   alertasDeLaToma, cribadoPresionInfantil, evaluarSignosVitales, leerPresion, limiteHipotension,
   mencionaAlergia, rangoPulso, rangoRespiracion, referenciasParaEdad, validarMedicion,
-} from './signosVitales.js';
+} from './signosVitales.ts';
 
 // Toma normal de un adulto; cada prueba cambia solo lo que evalúa
 const NORMAL = { presion: '118/76', pulso: '72', temperatura: '36.5', edad: 30, sexo: 'Femenino' };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { combinarOdontograma, estadosDePieza, resumirMarcas } from './odontograma.js';
+import { combinarOdontograma, estadosDePieza, resumirMarcas } from './odontograma.ts';
 
 const marca = (pieza, cara, estado) => ({ pieza, cara, estado });
 

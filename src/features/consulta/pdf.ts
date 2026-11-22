@@ -1,0 +1,820 @@
+// ==================== DOCUMENTOS PDF DE LA CONSULTA ====================
+// Receta médica e historial clínico en A4 (medidas en milímetros).
+
+import { jsPDF } from 'jspdf';
+import logoUleam from '../../assets/logo-uleam.png';
+import { fechaLocalISO } from '../../services/clinica';
+import { aFecha, formatearFecha, formatearFechaHora } from '../../utils/formato';
+import {
+  carasPorPosicion, DIENTES, ESTADOS_DIENTE, estadoCara, estadoDiente, estadoPrincipal, tipoDiente, type PosicionCara,
+} from './dientes';
+import { estadosDePieza } from '../../utils/odontograma';
+import type { Medicamento } from '../../types/api';
+import type {
+  Alerta, Consentimiento, Diagnostico, EstadoPieza, MarcaPieza, Odontograma, Signos,
+} from '../../types/dominio';
+
+type RGB = [number, number, number];
+type Denticion = keyof typeof DIENTES;
+
+/** Datos del paciente que usan los documentos (vienen de la consulta o de la ficha) */
+export interface PacientePDF {
+  nombre: string;
+  cedula: string;
+  edad?: number | string;
+  sexo?: string;
+  /** Tipo de consulta */
+  tratamiento?: string;
+  /** "Ninguna" o la lista de alergias */
+  alergias?: string;
+  alertas?: Pick<Alerta, 'titulo' | 'descripcion' | 'severidad'>[];
+  signosVitales?: Signos | null;
+}
+
+/** Receta guardada o en preparación (las antiguas traen un solo medicamento sin lista) */
+export interface RecetaPDF extends Partial<Medicamento> {
+  numero?: string;
+  fechaRegistro?: string;
+  medicamentos?: Medicamento[];
+  indicaciones?: string | null;
+  odontologo?: string;
+}
+
+/** Fila del historial: un diagnóstico (fecha en fechaRegistro o fecha) */
+export type RegistroHistorial = Pick<Diagnostico, 'diente' | 'procedimiento' | 'diagnostico' | 'notas' | 'estado'>
+  & { fechaRegistro?: string; fecha?: string };
+
+interface Dato {
+  etiqueta: string;
+  valor: string | number | null | undefined;
+  alerta?: boolean;
+}
+
+// Nombre por defecto si el documento no trae quién lo emitió
+const ODONTOLOGA = 'Odontóloga tratante';
+
+// ===== Medidas de la hoja =====
+const ANCHO = 210;
+const ALTO = 297;
+const MARGEN = 18;
+const CONTENIDO = ANCHO - MARGEN * 2;
+const LIMITE_INFERIOR = 272; // desde aquí empieza el pie de página
+
+// ===== Colores (RGB) =====
+const C: Record<string, RGB> = {
+  marca: [200, 16, 46], // rojo Uleam
+  texto: [15, 23, 42],
+  suave: [71, 85, 105],
+  tenue: [148, 163, 184],
+  borde: [226, 232, 240],
+  fondo: [248, 250, 252],
+  cabecera: [30, 41, 59],
+  alertaFondo: [254, 242, 242],
+  alertaTexto: [185, 28, 28],
+  blanco: [255, 255, 255],
+};
+
+const ESTADOS_HISTORIAL: Record<string, { texto: string; fondo: RGB; color: RGB }> = {
+  completado: { texto: 'Completado', fondo: [220, 252, 231], color: [21, 128, 61] },
+  proceso: { texto: 'En proceso', fondo: [219, 234, 254], color: [29, 78, 216] },
+  pendiente: { texto: 'Pendiente', fondo: [254, 249, 195], color: [161, 98, 7] },
+};
+
+// Colores de las alertas por severidad: [fondo, color]
+const SEVERIDADES: Record<string, { fondo: RGB; color: RGB; texto: string }> = {
+  critica: { fondo: [254, 226, 226], color: [185, 28, 28], texto: 'URGENTE' },
+  alta: { fondo: [255, 237, 213], color: [194, 65, 12], texto: 'IMPORTANTE' },
+  moderada: { fondo: [254, 249, 195], color: [161, 98, 7], texto: 'VIGILAR' },
+};
+
+const hexARgb = (hex: string): RGB => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as RGB;
+
+// ==================== UTILIDADES DE DIBUJO ====================
+
+const relleno = (doc: jsPDF, rgb: RGB) => doc.setFillColor(...rgb);
+const trazo = (doc: jsPDF, rgb: RGB) => doc.setDrawColor(...rgb);
+const colorTexto = (doc: jsPDF, rgb: RGB) => doc.setTextColor(...rgb);
+
+const fuente = (doc: jsPDF, tamano: number, estilo = 'normal', color: RGB = C.texto) => {
+  doc.setFont('helvetica', estilo);
+  doc.setFontSize(tamano);
+  colorTexto(doc, color);
+};
+
+/** Carga una imagen (URL del bundle) como data URL para incrustarla en el PDF */
+const cargarImagen = async (url: string): Promise<string> => {
+  const respuesta = await fetch(url);
+  const blob = await respuesta.blob();
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(String(lector.result));
+    lector.onerror = reject;
+    lector.readAsDataURL(blob);
+  });
+};
+
+const numeroDocumento = (prefijo: string): string => {
+  const ahora = new Date();
+  const hora = `${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}`;
+  return `${prefijo}-${fechaLocalISO(ahora).replace(/-/g, '')}-${hora}`;
+};
+
+const nombreArchivo = (texto: string): string =>
+  texto.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_');
+
+// ==================== PARTES COMUNES ====================
+
+/** Encabezado institucional con logo, título del documento y número */
+function encabezado(
+  doc: jsPDF,
+  logo: string,
+  { titulo, numero, fecha }: { titulo: string; numero: string; fecha: string },
+): number {
+  doc.addImage(logo, 'PNG', MARGEN, 11, 25, 21.5);
+
+  fuente(doc, 11, 'bold');
+  doc.text('UNIVERSIDAD LAICA ELOY ALFARO DE MANABÍ', MARGEN + 30, 18);
+  fuente(doc, 9, 'normal', C.suave);
+  doc.text('Carrera de Odontología', MARGEN + 30, 23.5);
+  doc.text('Clínica Odontológica', MARGEN + 30, 28);
+
+  // El título va a la derecha sin pisar el nombre de la universidad (máx. 46 mm)
+  fuente(doc, 13, 'bold', C.marca);
+  if (doc.getTextWidth(titulo) <= 46) {
+    doc.text(titulo, ANCHO - MARGEN, 18, { align: 'right' });
+    fuente(doc, 8.5, 'normal', C.suave);
+    doc.text(`N.º ${numero}`, ANCHO - MARGEN, 23.5, { align: 'right' });
+    doc.text(fecha, ANCHO - MARGEN, 28, { align: 'right' });
+  } else {
+    fuente(doc, 11.5, 'bold', C.marca);
+    doc.text(doc.splitTextToSize(titulo, 46), ANCHO - MARGEN, 14.5, { align: 'right', lineHeightFactor: 1.1 });
+    fuente(doc, 8.5, 'normal', C.suave);
+    doc.text(`N.º ${numero}`, ANCHO - MARGEN, 25.5, { align: 'right' });
+    doc.text(fecha, ANCHO - MARGEN, 29.5, { align: 'right' });
+  }
+
+  relleno(doc, C.marca);
+  doc.rect(MARGEN, 36, CONTENIDO, 0.9, 'F');
+  return 44;
+}
+
+/** Título de sección en mayúsculas con una línea a la derecha */
+function seccion(doc: jsPDF, texto: string, y: number): number {
+  fuente(doc, 8.5, 'bold', C.marca);
+  doc.text(texto.toUpperCase(), MARGEN, y);
+  const ancho = doc.getTextWidth(texto.toUpperCase());
+  trazo(doc, C.borde);
+  doc.setLineWidth(0.3);
+  doc.line(MARGEN + ancho + 3, y - 1.2, ANCHO - MARGEN, y - 1.2);
+  return y + 5;
+}
+
+/**
+ * Recuadro con datos en columnas.
+ * filas: [[{ etiqueta, valor, alerta? }, ...], ...]
+ */
+function recuadroDatos(doc: jsPDF, filas: Dato[][], y: number): number {
+  const altoFila = 11.5;
+  const alto = filas.length * altoFila + 4;
+  relleno(doc, C.fondo);
+  trazo(doc, C.borde);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGEN, y, CONTENIDO, alto, 2, 2, 'FD');
+
+  filas.forEach((fila, i) => {
+    const anchoCol = CONTENIDO / fila.length;
+    fila.forEach((dato, j) => {
+      const x = MARGEN + 5 + j * anchoCol;
+      const yFila = y + 6.5 + i * altoFila;
+      fuente(doc, 7, 'bold', C.tenue);
+      doc.text(dato.etiqueta.toUpperCase(), x, yFila);
+      fuente(doc, 10, 'bold', dato.alerta ? C.alertaTexto : C.texto);
+      const valor = doc.splitTextToSize(String(dato.valor ?? '-'), anchoCol - 6)[0];
+      doc.text(valor, x, yFila + 5);
+    });
+  });
+  return y + alto + 8;
+}
+
+/** Aviso rojo (alergias) */
+function aviso(doc: jsPDF, texto: string, y: number): number {
+  const lineas = doc.splitTextToSize(texto, CONTENIDO - 14);
+  const alto = 7 + lineas.length * 4.5;
+  relleno(doc, C.alertaFondo);
+  doc.roundedRect(MARGEN, y, CONTENIDO, alto, 2, 2, 'F');
+  relleno(doc, C.alertaTexto);
+  doc.rect(MARGEN, y, 1.4, alto, 'F');
+  fuente(doc, 9.5, 'bold', C.alertaTexto);
+  doc.text(lineas, MARGEN + 6, y + 6);
+  return y + alto + 7;
+}
+
+/** Lista de alertas médicas con el color de su severidad */
+function alertasPDF(doc: jsPDF, alertas: NonNullable<PacientePDF['alertas']>, y: number): number {
+  alertas.forEach((a) => {
+    const sev = SEVERIDADES[a.severidad] || SEVERIDADES.alta;
+    fuente(doc, 9);
+    const lineas: string[] = a.descripcion ? doc.splitTextToSize(a.descripcion, CONTENIDO - 12) : [];
+    const alto = 8 + lineas.length * 4.2;
+    if (y + alto > LIMITE_INFERIOR) {
+      doc.addPage();
+      y = 20;
+    }
+    relleno(doc, sev.fondo);
+    doc.roundedRect(MARGEN, y, CONTENIDO, alto, 1.8, 1.8, 'F');
+    relleno(doc, sev.color);
+    doc.rect(MARGEN, y, 1.4, alto, 'F');
+
+    fuente(doc, 9.5, 'bold', sev.color);
+    doc.text(a.titulo, MARGEN + 6, y + 5.5);
+    const anchoTitulo = doc.getTextWidth(a.titulo);
+    fuente(doc, 6.5, 'bold', sev.color);
+    doc.text(sev.texto, MARGEN + 9 + anchoTitulo, y + 5.4);
+    if (lineas.length) {
+      fuente(doc, 9, 'normal', C.texto);
+      doc.text(lineas, MARGEN + 6, y + 10);
+    }
+    y += alto + 2.5;
+  });
+  return y + 5;
+}
+
+/** Línea de firma de la odontóloga */
+function firma(doc: jsPDF, y: number, nombre: string = ODONTOLOGA) {
+  const x = ANCHO - MARGEN - 70;
+  trazo(doc, C.suave);
+  doc.setLineWidth(0.3);
+  doc.line(x, y, ANCHO - MARGEN, y);
+  fuente(doc, 10, 'bold');
+  doc.text(nombre, x + 35, y + 5, { align: 'center' });
+  fuente(doc, 8.5, 'normal', C.suave);
+  doc.text('Odontóloga tratante', x + 35, y + 9.5, { align: 'center' });
+  fuente(doc, 8, 'normal', C.tenue);
+  doc.text('Firma y sello', MARGEN, y + 5);
+}
+
+/** Pie con número de página en todas las hojas (se llama al final) */
+function piesDePagina(doc: jsPDF) {
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i += 1) {
+    doc.setPage(i);
+    trazo(doc, C.borde);
+    doc.setLineWidth(0.3);
+    doc.line(MARGEN, ALTO - 16, ANCHO - MARGEN, ALTO - 16);
+    fuente(doc, 7.5, 'normal', C.tenue);
+    doc.text('Documento generado por el Sistema de gestión dental · Uleam', MARGEN, ALTO - 11);
+    doc.text(`Página ${i} de ${total}`, ANCHO - MARGEN, ALTO - 11, { align: 'right' });
+  }
+}
+
+const datosPaciente = (paciente: PacientePDF, extra: Dato[] = []): Dato[][] => [
+  [
+    { etiqueta: 'Paciente', valor: paciente.nombre },
+    { etiqueta: 'Cédula', valor: paciente.cedula },
+    { etiqueta: 'Edad', valor: paciente.edad ? `${paciente.edad} años` : '-' },
+  ],
+  [
+    { etiqueta: 'Sexo', valor: paciente.sexo || '-' },
+    ...extra,
+  ],
+];
+
+const tieneAlergia = (paciente: PacientePDF): boolean => Boolean(paciente.alergias && paciente.alergias !== 'Ninguna');
+
+// ==================== RECETA MÉDICA ====================
+
+export async function generarRecetaPDF(paciente: PacientePDF, receta: RecetaPDF): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const logo = await cargarImagen(logoUleam);
+
+  // Una receta guardada conserva su número y fecha al volver a descargarla
+  let y = encabezado(doc, logo, {
+    titulo: 'RECETA MÉDICA',
+    numero: receta.numero || numeroDocumento('RX'),
+    fecha: formatearFechaHora(receta.fechaRegistro || new Date()),
+  });
+
+  y = recuadroDatos(doc, datosPaciente(paciente, [
+    { etiqueta: 'Consulta', valor: paciente.tratamiento || '-' },
+    { etiqueta: 'Alergias', valor: tieneAlergia(paciente) ? paciente.alergias : 'Ninguna', alerta: tieneAlergia(paciente) },
+  ]), y);
+
+  if (tieneAlergia(paciente)) {
+    y = aviso(doc, `Atención: alergias registradas: ${paciente.alergias}. Verificar antes de dispensar.`, y);
+  }
+
+  // Símbolo de prescripción
+  fuente(doc, 26, 'bolditalic', C.marca);
+  doc.text('Rp.', MARGEN, y + 8);
+  y += 15;
+
+  // Una tarjeta por medicamento (las recetas antiguas traen uno solo, sin lista)
+  const medicamentos: Partial<Medicamento>[] = receta.medicamentos?.length ? receta.medicamentos : [receta];
+  // Con varios medicamentos las tarjetas son más compactas para que quepan en una hoja
+  const compacta = medicamentos.length > 1;
+  const altoTarjeta = compacta ? 25 : 32;
+  const anchoCol = (CONTENIDO - 14) / 3;
+  medicamentos.forEach((m, indice) => {
+    if (y + altoTarjeta > ALTO - 40) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    trazo(doc, C.borde);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(MARGEN, y, CONTENIDO, altoTarjeta, 2.5, 2.5, 'S');
+    relleno(doc, C.marca);
+    doc.rect(MARGEN, y + 3, 1.4, altoTarjeta - 6, 'F');
+
+    fuente(doc, compacta ? 12.5 : 14, 'bold');
+    const titulo = compacta ? `${indice + 1}. ${m.medicamento}` : m.medicamento;
+    doc.text(doc.splitTextToSize(titulo || '-', CONTENIDO - 14)[0], MARGEN + 7, y + (compacta ? 8 : 9.5));
+
+    const cajaY = y + (compacta ? 11.5 : 14);
+    const cajaAlto = compacta ? 10.5 : 13.5;
+    ([['Dosis', m.dosis], ['Frecuencia', m.frecuencia], ['Duración', m.duracion]] as const).forEach(([etiqueta, valor], i) => {
+      const x = MARGEN + 7 + i * anchoCol;
+      relleno(doc, C.fondo);
+      doc.roundedRect(x, cajaY, anchoCol - 4, cajaAlto, 1.5, 1.5, 'F');
+      fuente(doc, compacta ? 6.5 : 7, 'bold', C.tenue);
+      doc.text(etiqueta.toUpperCase(), x + 3.5, cajaY + (compacta ? 4 : 5));
+      fuente(doc, compacta ? 9.5 : 10.5, 'bold');
+      doc.text(doc.splitTextToSize(valor || '-', anchoCol - 10)[0], x + 3.5, cajaY + (compacta ? 8.5 : 10.5));
+    });
+    y += altoTarjeta + (compacta ? 4 : 5);
+  });
+  y += 5;
+
+  // Indicaciones, recomendaciones y firma deben caber antes del pie de página
+  fuente(doc, 10.5, 'normal', receta.indicaciones ? C.texto : C.tenue);
+  const indicaciones: string[] = doc.splitTextToSize(receta.indicaciones || 'Sin indicaciones adicionales.', CONTENIDO);
+  // secciones (10) + texto (líneas × 5 + 8) + recomendaciones (11) + firma (28) antes del pie (ALTO - 18)
+  if (y + 57 + indicaciones.length * 5 > ALTO - 18) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = seccion(doc, 'Indicaciones', y);
+  fuente(doc, 10.5, 'normal', receta.indicaciones ? C.texto : C.tenue);
+  doc.text(indicaciones, MARGEN, y + 1);
+  y += indicaciones.length * 5 + 8;
+
+  // Recomendaciones generales para el paciente
+  y = seccion(doc, 'Recomendaciones', y);
+  fuente(doc, 9.5, 'normal', C.suave);
+  [
+    'Siga la dosis y el horario indicados. No suspenda el tratamiento sin consultar.',
+    'Si presenta reacciones adversas, suspenda el medicamento y acuda a la clínica.',
+  ].forEach((linea) => {
+    relleno(doc, C.tenue);
+    doc.circle(MARGEN + 1.2, y - 1.1, 0.7, 'F');
+    doc.text(linea, MARGEN + 4.5, y);
+    y += 5.5;
+  });
+
+  firma(doc, Math.max(y + 18, 250), receta.odontologo);
+  piesDePagina(doc);
+  doc.save(`Receta_${nombreArchivo(paciente.nombre)}.pdf`);
+}
+
+// ==================== ODONTOGRAMA EN EL PDF ====================
+
+/** Polígono cerrado a partir de puntos absolutos [[x, y], …] */
+function poligono(doc: jsPDF, puntos: [number, number][], estilo: string) {
+  const [x0, y0] = puntos[0];
+  const segmentos = puntos.slice(1).map(([x, y], i) => [x - puntos[i][0], y - puntos[i][1]]);
+  doc.lines(segmentos, x0, y0, [1, 1], estilo, true);
+}
+
+/** Las 5 caras de una pieza dentro de un cuadrado (x, y, lado) */
+function carasPDF(doc: jsPDF, numero: number, marca: MarcaPieza | undefined, x: number, y: number, lado: number) {
+  const a = lado * 0.3; // borde del cuadrado central
+  const P: Record<PosicionCara, [number, number][]> = {
+    arriba: [[x, y], [x + lado, y], [x + lado - a, y + a], [x + a, y + a]],
+    abajo: [[x + a, y + lado - a], [x + lado - a, y + lado - a], [x + lado, y + lado], [x, y + lado]],
+    izquierda: [[x, y], [x + a, y + a], [x + a, y + lado - a], [x, y + lado]],
+    derecha: [[x + lado, y], [x + lado, y + lado], [x + lado - a, y + lado - a], [x + lado - a, y + a]],
+    centro: [[x + a, y + a], [x + lado - a, y + a], [x + lado - a, y + lado - a], [x + a, y + lado - a]],
+  };
+  const posiciones = carasPorPosicion(numero);
+  doc.setLineWidth(0.15);
+  (Object.entries(P) as [PosicionCara, [number, number][]][]).forEach(([posicion, puntos]) => {
+    const info = estadoDiente(estadoCara(marca, posiciones[posicion]));
+    relleno(doc, info ? hexARgb(info.fill) : C.blanco);
+    trazo(doc, info ? hexARgb(info.stroke) : [184, 192, 204]);
+    poligono(doc, puntos, 'FD');
+  });
+}
+
+/**
+ * Dibuja el odontograma (dentición permanente) con un diente simplificado por pieza.
+ * estados: { [pieza]: { completa, caras } }. Si la pieza tiene caras marcadas,
+ * la corona se dibuja con sus 5 caras.
+ */
+function arcadasPDF(doc: jsPDF, estados: Odontograma, y: number, denticion: Denticion): number {
+  const temporal = denticion === 'nino';
+  const porCuadrante = temporal ? 5 : 8;
+  const anchoDiente = temporal ? 12 : 9.2;
+  const separacion = 1;
+  const separacionCuadrante = 5;
+  const anchoArcada = porCuadrante * 2 * anchoDiente + (porCuadrante * 2 - 2) * separacion + separacionCuadrante;
+  const xInicio = MARGEN + (CONTENIDO - anchoArcada) / 2;
+
+  fuente(doc, 7, 'bold', C.tenue);
+  doc.text(temporal ? 'DENTICIÓN TEMPORAL (DE LECHE)' : 'DENTICIÓN PERMANENTE', MARGEN, y + 3);
+  y += 5;
+
+  relleno(doc, [255, 247, 248]);
+  trazo(doc, [246, 221, 226]);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGEN, y, CONTENIDO, 58, 2.5, 2.5, 'FD');
+
+  const centro = y + 29; // línea media entre arcadas
+  doc.setLineDashPattern([1, 1], 0);
+  trazo(doc, [232, 185, 194]);
+  doc.line(MARGEN + 6, centro, ANCHO - MARGEN - 6, centro);
+  doc.setLineDashPattern([], 0);
+
+  fuente(doc, 6.5, 'bold', C.tenue);
+  doc.text('DERECHA', MARGEN + 3, centro + 1, { angle: 90 });
+  doc.text('IZQUIERDA', ANCHO - MARGEN - 3, centro - 7.5, { angle: -90 });
+
+  const dibujarArcada = (cuadrantes: number[][], superior: boolean) => {
+    let x = xInicio;
+    cuadrantes.forEach((cuadrante, iCuadrante) => {
+      cuadrante.forEach((numero) => {
+        const marca = estados[numero];
+        const info = estadoDiente(marca?.completa);
+        const principal = estadoDiente(estadoPrincipal(marca));
+        const porCaras = Object.keys(marca?.caras || {}).length > 0;
+        const tipo = tipoDiente(numero);
+        // En temporales el diente es más ancho en el papel, pero la corona conserva proporciones parecidas
+        const base = temporal ? anchoDiente - 2.4 : anchoDiente;
+        const anchoCorona = tipo === 'molar' ? base : tipo === 'premolar' ? base - 1.2 : base - 2.6;
+        const xc = x + (anchoDiente - anchoCorona) / 2;
+        // superior: raíz arriba, corona abajo (junto a la línea media)
+        const yCorona = superior ? centro - 15.5 : centro + 7.5;
+        const yRaiz = superior ? centro - 15.5 : centro + 15.5;
+        const puntaRaiz = superior ? centro - 23 : centro + 23;
+
+        doc.setLineWidth(0.25);
+        relleno(doc, [243, 236, 224]);
+        trazo(doc, [201, 187, 164]);
+        if (tipo === 'molar') {
+          doc.triangle(xc + 0.6, yRaiz, xc + anchoCorona / 2 - 0.4, yRaiz, xc + anchoCorona / 4, puntaRaiz, 'FD');
+          doc.triangle(xc + anchoCorona / 2 + 0.4, yRaiz, xc + anchoCorona - 0.6, yRaiz, xc + (anchoCorona * 3) / 4, puntaRaiz, 'FD');
+        } else {
+          doc.triangle(xc + 1, yRaiz, xc + anchoCorona - 1, yRaiz, xc + anchoCorona / 2, puntaRaiz, 'FD');
+        }
+
+        relleno(doc, info ? hexARgb(info.fill) : C.blanco);
+        trazo(doc, info ? hexARgb(info.stroke) : [184, 192, 204]);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(xc, yCorona, anchoCorona, 8, 1.6, 1.6, 'FD');
+        if (porCaras) {
+          const lado = Math.min(anchoCorona, 8) - 1.4;
+          carasPDF(doc, numero, marca, xc + (anchoCorona - lado) / 2, yCorona + (8 - lado) / 2, lado);
+        }
+
+        if (marca?.completa === 'ausente') {
+          trazo(doc, [107, 114, 128]);
+          doc.setLineWidth(0.5);
+          doc.line(xc, yCorona - 2, xc + anchoCorona, yCorona + 10);
+          doc.line(xc + anchoCorona, yCorona - 2, xc, yCorona + 10);
+        }
+
+        fuente(doc, 6.5, 'bold', principal ? hexARgb(principal.text) : C.suave);
+        doc.text(String(numero), x + anchoDiente / 2, superior ? centro - 2.5 : centro + 5, { align: 'center' });
+        x += anchoDiente + separacion;
+      });
+      if (iCuadrante === 0) x += separacionCuadrante - separacion;
+    });
+  };
+
+  dibujarArcada(DIENTES[denticion].superior, true);
+  dibujarArcada(DIENTES[denticion].inferior, false);
+  return y + 58;
+}
+
+/**
+ * Qué denticiones dibujar: la temporal en menores de 12 años o si hay piezas
+ * temporales marcadas; la permanente desde los 6 años (dentición mixta) o si
+ * hay piezas permanentes marcadas. En niños pequeños va primero la temporal.
+ */
+function denticionesParaPDF(estados: Odontograma, edad: number | string | undefined): Denticion[] {
+  const piezas = Object.keys(estados).map(Number);
+  const e = Number.isFinite(Number(edad)) && String(edad).trim() !== '' ? Number(edad) : null;
+  const temporal = piezas.some((n) => n >= 51) || (e !== null && e < 12);
+  const permanente = piezas.some((n) => n < 50) || e === null || e >= 6;
+  const lista: Denticion[] = [];
+  if (temporal && e !== null && e < 6) lista.push('nino');
+  if (permanente) lista.push('adulto');
+  if (temporal && !lista.includes('nino')) lista.push('nino');
+  return lista.length ? lista : ['adulto'];
+}
+
+/**
+ * Odontograma completo del PDF (una o dos denticiones) con la leyenda.
+ * estados: { [pieza]: { completa, caras } }
+ */
+function odontogramaPDF(doc: jsPDF, estados: Odontograma, y: number, edad: number | string | undefined): number {
+  denticionesParaPDF(estados, edad).forEach((denticion) => {
+    if (y + 64 > LIMITE_INFERIOR) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    y = arcadasPDF(doc, estados, y, denticion) + 4;
+  });
+
+  // Leyenda con totales (piezas por estado)
+  let x = MARGEN;
+  const yLeyenda = y + 3;
+  ESTADOS_DIENTE.forEach((e) => {
+    const total = Object.values(estados).filter((m) => estadosDePieza<EstadoPieza>(m).includes(e.id)).length;
+    relleno(doc, hexARgb(e.fill));
+    trazo(doc, hexARgb(e.stroke));
+    doc.setLineWidth(0.3);
+    doc.roundedRect(x, yLeyenda - 3, 3.5, 3.5, 0.8, 0.8, 'FD');
+    fuente(doc, 8.5, 'normal', C.suave);
+    const etiqueta = `${e.label}: ${total}`;
+    doc.text(etiqueta, x + 5, yLeyenda);
+    x += doc.getTextWidth(etiqueta) + 12;
+  });
+
+  return yLeyenda + 9;
+}
+
+// ==================== HISTORIAL CLÍNICO ====================
+
+const COLUMNAS = [
+  { titulo: 'Fecha', ancho: 24 },
+  { titulo: 'Pieza', ancho: 22 },
+  { titulo: 'Procedimiento', ancho: 30 },
+  { titulo: 'Diagnóstico y notas', ancho: 72 },
+  { titulo: 'Estado', ancho: 26 },
+];
+
+function cabeceraTabla(doc: jsPDF, y: number): number {
+  relleno(doc, C.cabecera);
+  doc.roundedRect(MARGEN, y, CONTENIDO, 8, 1.5, 1.5, 'F');
+  fuente(doc, 7.5, 'bold', C.blanco);
+  let x = MARGEN;
+  COLUMNAS.forEach((col) => {
+    doc.text(col.titulo.toUpperCase(), x + 3, y + 5.3);
+    x += col.ancho;
+  });
+  return y + 8;
+}
+
+/**
+ * Historial clínico del paciente. Si se pasa `fecha` (YYYY-MM-DD), solo
+ * incluye los procedimientos de ese día.
+ */
+export interface OpcionesHistorial {
+  /** YYYY-MM-DD: solo los procedimientos de ese día */
+  fecha?: string | null;
+  odontograma?: Odontograma;
+  /** Nombre de quien firma (la odontóloga) */
+  firmante?: string;
+}
+
+export async function generarHistorialPDF(
+  paciente: PacientePDF,
+  historial: RegistroHistorial[],
+  { fecha = null, odontograma = {}, firmante }: OpcionesHistorial = {},
+): Promise<void> {
+  const registros = fecha
+    ? historial.filter((h) => {
+      const f = aFecha(h.fechaRegistro || h.fecha);
+      return f && fechaLocalISO(f) === fecha;
+    })
+    : historial;
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const logo = await cargarImagen(logoUleam);
+
+  let y = encabezado(doc, logo, {
+    titulo: 'HISTORIAL CLÍNICO',
+    numero: `HC-${paciente.cedula}`,
+    fecha: `Emitido: ${formatearFechaHora(new Date())}`,
+  });
+
+  y = recuadroDatos(doc, datosPaciente(paciente, [
+    { etiqueta: 'Periodo', valor: fecha ? formatearFecha(fecha) : 'Todas las fechas' },
+    { etiqueta: 'Registros', valor: String(registros.length) },
+  ]), y);
+
+  if (paciente.alertas?.length) {
+    y = seccion(doc, 'Alertas médicas', y);
+    y = alertasPDF(doc, paciente.alertas, y);
+  } else if (tieneAlergia(paciente)) {
+    y = aviso(doc, `Atención: ${paciente.alergias}`, y);
+  }
+
+  // Signos vitales
+  if (paciente.signosVitales) {
+    y = seccion(doc, 'Signos vitales (enfermería)', y);
+    const sv = paciente.signosVitales;
+    const datos: (readonly [string, string | null, string])[] = [
+      ['Presión arterial', sv.presion, 'presion'],
+      ['Pulso', sv.pulso, 'pulso'],
+      ['Temperatura', sv.temperatura, 'temperatura'],
+      // Opcionales: solo aparecen si enfermería los registró
+      ...(sv.frecuenciaRespiratoria ? [['Frec. respiratoria', sv.frecuenciaRespiratoria, 'frecuenciaRespiratoria'] as const] : []),
+      ...(sv.saturacion ? [['Saturación O2', sv.saturacion, 'saturacion'] as const] : []),
+    ];
+    const ancho = (CONTENIDO - 8) / 3;
+    datos.forEach(([etiqueta, valor, signo], i) => {
+      // El valor se pinta del color de la alerta si está fuera de lo normal
+      const fuera = (sv.hallazgos || []).find((h) => h.signo === signo);
+      const x = MARGEN + (i % 3) * (ancho + 4);
+      const yCaja = y + Math.floor(i / 3) * 19;
+      relleno(doc, C.fondo);
+      trazo(doc, C.borde);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, yCaja, ancho, 15, 2, 2, 'FD');
+      fuente(doc, 7, 'bold', C.tenue);
+      doc.text(etiqueta.toUpperCase(), x + 4, yCaja + 5.5);
+      fuente(doc, 12, 'bold', fuera ? (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color : C.texto);
+      doc.text(String(valor || '-'), x + 4, yCaja + 11.5);
+      if (fuera) {
+        fuente(doc, 7, 'bold', (SEVERIDADES[fuera.severidad] || SEVERIDADES.alta).color);
+        doc.text(doc.splitTextToSize(fuera.titulo, ancho - 26)[0], x + ancho - 4, yCaja + 11.5, { align: 'right' });
+      }
+    });
+    y += Math.ceil(datos.length / 3) * 19 + 4;
+  }
+
+  // Odontograma (el título no se queda solo al final de la hoja)
+  if (y + 75 > LIMITE_INFERIOR) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = seccion(doc, 'Odontograma', y);
+  y = odontogramaPDF(doc, odontograma, y, paciente.edad);
+
+  // Tabla de procedimientos (si no cabe el título, la cabecera y una fila, empieza en otra hoja)
+  if (y > ALTO - 55) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = seccion(doc, 'Procedimientos y diagnósticos', y);
+  y = cabeceraTabla(doc, y);
+
+  if (!registros.length) {
+    fuente(doc, 9.5, 'italic', C.tenue);
+    doc.text('No existen registros para el periodo seleccionado.', MARGEN + 3, y + 7);
+    y += 12;
+  }
+
+  registros.forEach((h, i) => {
+    fuente(doc, 9, 'bold');
+    // "11, 26, 36" se reparte en varias líneas si no cabe en la columna
+    const piezas: string[] = doc.splitTextToSize(String(h.diente).replace(/\s*,\s*/g, ', '), COLUMNAS[1].ancho - 5);
+    fuente(doc, 9);
+    const diagnostico: string[] = doc.splitTextToSize(h.diagnostico || '-', COLUMNAS[3].ancho - 6);
+    const notas: string[] = h.notas ? doc.splitTextToSize(h.notas, COLUMNAS[3].ancho - 6) : [];
+    const alto = Math.max(10, 6 + diagnostico.length * 4.2 + notas.length * 3.8, 6 + piezas.length * 4.2);
+
+    if (y + alto > LIMITE_INFERIOR) {
+      doc.addPage();
+      y = cabeceraTabla(doc, 20);
+    }
+
+    if (i % 2 === 1) {
+      relleno(doc, C.fondo);
+      doc.rect(MARGEN, y, CONTENIDO, alto, 'F');
+    }
+    trazo(doc, C.borde);
+    doc.setLineWidth(0.2);
+    doc.line(MARGEN, y + alto, ANCHO - MARGEN, y + alto);
+
+    let x = MARGEN;
+    const yTexto = y + 6;
+    fuente(doc, 9, 'normal', C.suave);
+    doc.text(formatearFecha(h.fechaRegistro || h.fecha), x + 3, yTexto);
+    x += COLUMNAS[0].ancho;
+    fuente(doc, 9, 'bold');
+    doc.text(piezas, x + 3, yTexto);
+    x += COLUMNAS[1].ancho;
+    fuente(doc, 9);
+    doc.text(h.procedimiento, x + 3, yTexto);
+    x += COLUMNAS[2].ancho;
+    doc.text(diagnostico, x + 3, yTexto);
+    if (notas.length) {
+      fuente(doc, 8, 'italic', C.suave);
+      doc.text(notas, x + 3, yTexto + diagnostico.length * 4.2);
+    }
+    x += COLUMNAS[3].ancho;
+
+    const estado = ESTADOS_HISTORIAL[h.estado] || { texto: h.estado, fondo: C.fondo, color: C.suave };
+    fuente(doc, 7.5, 'bold', estado.color);
+    const anchoPastilla = doc.getTextWidth(estado.texto) + 5;
+    relleno(doc, estado.fondo);
+    doc.roundedRect(x + 2, yTexto - 3.6, anchoPastilla, 5.2, 2.6, 2.6, 'F');
+    doc.text(estado.texto, x + 4.5, yTexto);
+
+    y += alto;
+  });
+
+  // Firma (en una hoja nueva si no cabe)
+  if (y + 30 > LIMITE_INFERIOR) {
+    doc.addPage();
+    y = 20;
+  }
+  firma(doc, Math.max(y + 22, 245), firmante);
+
+  piesDePagina(doc);
+  doc.save(`Historial_${nombreArchivo(paciente.nombre)}${fecha ? `_${fecha}` : ''}.pdf`);
+}
+
+// ==================== CONSENTIMIENTO INFORMADO ====================
+
+/** Línea de firma con nombre y cédula debajo */
+function lineaFirma(doc: jsPDF, x: number, y: number, ancho: number, nombre: string, detalle: string) {
+  trazo(doc, C.suave);
+  doc.setLineWidth(0.3);
+  doc.line(x, y, x + ancho, y);
+  fuente(doc, 9.5, 'bold');
+  doc.text(doc.splitTextToSize(nombre, ancho)[0], x + ancho / 2, y + 5, { align: 'center' });
+  fuente(doc, 8, 'normal', C.suave);
+  doc.text(detalle, x + ancho / 2, y + 9.5, { align: 'center' });
+}
+
+/**
+ * Consentimiento ya registrado en el sistema, para imprimir y firmar.
+ * consentimiento: { procedimiento, textoAceptado, firmanteNombre, firmanteCedula, esRepresentante, aceptadoEn, odontologo }
+ */
+export async function generarConsentimientoPDF(
+  paciente: PacientePDF,
+  consentimiento: Pick<Consentimiento, 'procedimiento' | 'textoAceptado' | 'firmanteNombre' | 'firmanteCedula' | 'esRepresentante' | 'aceptadoEn' | 'odontologo'>,
+): Promise<void> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const logo = await cargarImagen(logoUleam);
+
+  let y = encabezado(doc, logo, {
+    titulo: 'CONSENTIMIENTO INFORMADO',
+    numero: `CI-${fechaLocalISO(aFecha(consentimiento.aceptadoEn) || new Date()).replace(/-/g, '')}-${paciente.cedula.slice(-4)}`,
+    fecha: formatearFechaHora(consentimiento.aceptadoEn),
+  });
+
+  y = recuadroDatos(doc, datosPaciente(paciente, [
+    { etiqueta: 'Procedimiento', valor: consentimiento.procedimiento },
+    { etiqueta: 'Firma', valor: consentimiento.esRepresentante ? 'Representante' : 'El paciente' },
+  ]), y);
+
+  // Texto aceptado, tal como quedó guardado. Cada línea se dibuja aparte para
+  // mantener el mismo interlineado; las etiquetas ("En qué consiste:") van en negrita.
+  const INTERLINEA = 4.8;
+  const parrafos = consentimiento.textoAceptado.split('\n\n');
+  parrafos.forEach((parrafo, i) => {
+    const ultimo = i === parrafos.length - 1;
+    const etiqueta = (/^([^:.]{3,40}:)\s/.exec(parrafo) || [])[1];
+    fuente(doc, 10, ultimo ? 'bold' : 'normal');
+    const lineas: string[] = doc.splitTextToSize(parrafo, CONTENIDO);
+    if (y + lineas.length * INTERLINEA > LIMITE_INFERIOR - 5) {
+      doc.addPage();
+      y = MARGEN + 6;
+    }
+    lineas.forEach((linea, j) => {
+      const yLinea = y + j * INTERLINEA;
+      if (j === 0 && etiqueta && linea.startsWith(etiqueta)) {
+        fuente(doc, 10, 'bold');
+        doc.text(etiqueta, MARGEN, yLinea);
+        const ancho = doc.getTextWidth(etiqueta);
+        fuente(doc, 10, 'normal');
+        doc.text(linea.slice(etiqueta.length), MARGEN + ancho, yLinea);
+      } else {
+        fuente(doc, 10, ultimo ? 'bold' : 'normal');
+        doc.text(linea, MARGEN, yLinea);
+      }
+    });
+    y += lineas.length * INTERLINEA + 3;
+  });
+
+  // Firmas: quien acepta y la odontóloga
+  if (y + 62 > LIMITE_INFERIOR) {
+    doc.addPage();
+    y = MARGEN + 6;
+  }
+  y = Math.max(y + 22, 0);
+  const anchoFirma = (CONTENIDO - 20) / 2;
+  lineaFirma(
+    doc, MARGEN, y, anchoFirma, consentimiento.firmanteNombre,
+    `C.I. ${consentimiento.firmanteCedula}${consentimiento.esRepresentante ? ' · Representante' : ' · Paciente'}`,
+  );
+  lineaFirma(doc, MARGEN + anchoFirma + 20, y, anchoFirma, consentimiento.odontologo || ODONTOLOGA, 'Odontóloga tratante');
+
+  // Revocatoria (se llena solo si el paciente cambia de opinión)
+  y += 20;
+  relleno(doc, C.fondo);
+  trazo(doc, C.borde);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGEN, y, CONTENIDO, 24, 2, 2, 'FD');
+  fuente(doc, 7.5, 'bold', C.tenue);
+  doc.text('REVOCATORIA', MARGEN + 4, y + 5.5);
+  fuente(doc, 8.5, 'normal', C.suave);
+  doc.text('Retiro este consentimiento y no autorizo el procedimiento.', MARGEN + 4, y + 10.5);
+  doc.text('Firma: ______________________________    C.I.: ________________    Fecha: ____________', MARGEN + 4, y + 19);
+
+  piesDePagina(doc);
+  doc.save(`Consentimiento_${nombreArchivo(consentimiento.procedimiento)}_${nombreArchivo(paciente.nombre)}.pdf`);
+}
