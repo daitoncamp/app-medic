@@ -74,8 +74,8 @@ function LoginPage() {
         <div>
           <h1 className={styles.heroTitle}>Sistema de gestión dental</h1>
           <p className={styles.heroText}>
-            Clínica odontológica de la Uleam. Cada paciente pasa por tres etapas,
-            y cada equipo ve solo lo que le toca.
+            Clínica odontológica de la Uleam. Ingresa con tu cuenta institucional
+            para atender a tus pacientes.
           </p>
         </div>
         <ol className={styles.etapas}>
