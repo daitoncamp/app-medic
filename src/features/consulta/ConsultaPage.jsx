@@ -231,12 +231,17 @@ function ConsultaPage() {
               onClick={() => elegir(p.id)}
               aria-current={p.id === citaId ? 'true' : undefined}
             >
-              <span className={styles.agendaTime}>{p.hora}</span>
+              <span className={styles.agendaTime}>
+                {p.hora}
+                {p.deOtroDia && <small className={styles.agendaDate}>{formatearFecha(p.fecha)}</small>}
+              </span>
               <span className={styles.agendaText}>
                 <strong>{p.nombre}</strong>
                 <span>{p.tratamiento}</span>
               </span>
-              {p.alertas.length > 0 && (
+              {p.deOtroDia ? (
+                <Badge tone="warning">Sin finalizar</Badge>
+              ) : p.alertas.length > 0 && (
                 <Badge tone="danger">{p.alertas.length} {p.alertas.length === 1 ? 'alerta' : 'alertas'}</Badge>
               )}
             </button>

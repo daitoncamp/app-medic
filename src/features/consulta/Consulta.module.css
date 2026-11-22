@@ -353,3 +353,11 @@
   color: var(--color-success, #15803d);
   font-weight: 600;
 }
+
+.agendaDate {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-warning);
+  white-space: nowrap;
+}

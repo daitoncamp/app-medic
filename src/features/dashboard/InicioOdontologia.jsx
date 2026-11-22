@@ -21,10 +21,26 @@ function InicioOdontologia({ sesion }) {
       <PageHeader title={`Hola, ${sesion.nombre}`} subtitle="Tu consulta de hoy" />
 
       <StatGrid>
-        <StatCard icon={faUserClock} label="Pacientes preparados" value={valor(agenda.length)} hint="Ya pasaron por enfermería" />
+        <StatCard icon={faUserClock} label="Pacientes preparados" value={valor(datos?.metricas.preparados)} hint="Ya pasaron por enfermería" />
         <StatCard icon={faClipboardCheck} label="Atendidos hoy" value={valor(datos?.metricas.atendidosHoy)} tone="success" />
         <StatCard icon={faCircleExclamation} label="Con alertas médicas" value={valor(datos?.metricas.conAlertas)} tone="danger" />
       </StatGrid>
+
+      {datos?.metricas.sinFinalizarAnteriores > 0 && (
+        <Card className={styles.reminder}>
+          <p>
+            <strong>
+              {datos.metricas.sinFinalizarAnteriores === 1
+                ? 'Una consulta de días anteriores quedó sin finalizar.'
+                : `${datos.metricas.sinFinalizarAnteriores} consultas de días anteriores quedaron sin finalizar.`}
+            </strong>
+            {datos.metricas.sinFinalizarAnteriores === 1
+              ? ' Revísala y finalízala para cerrar la atención.'
+              : ' Revísalas y finalízalas para cerrar la atención.'}
+          </p>
+          <Button as={Link} to="/consulta" size="sm" variant="secondary">Ver en la agenda</Button>
+        </Card>
+      )}
 
       <div className={styles.split}>
         <Card title="Procedimientos del mes" subtitle="Registrados en diagnósticos">
@@ -35,7 +51,7 @@ function InicioOdontologia({ sesion }) {
           )}
         </Card>
 
-        <Card title="Próximo paciente">
+        <Card title={siguiente?.deOtroDia ? 'Consulta sin finalizar' : 'Próximo paciente'}>
           {siguiente ? (
             <div className={styles.next}>
               <p className={styles.nextName}>{siguiente.nombre}</p>

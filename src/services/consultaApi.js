@@ -1,6 +1,7 @@
 // ==================== CONSULTA ODONTOLÓGICA (API) ====================
 
 import { api } from './api';
+import { fechaLocalISO } from './clinica';
 import { adaptarAlerta, adaptarSignos, ordenarPorSeveridad } from './enfermeriaApi';
 import { adaptarCita, adaptarDiagnostico, adaptarReceta } from './recepcionApi';
 
@@ -43,6 +44,9 @@ export async function obtenerAgenda() {
       return {
         id: c.id,
         hora: c.hora,
+        fecha: c.fecha,
+        // Pasó por enfermería otro día y quedó sin finalizar
+        deOtroDia: c.fecha !== fechaLocalISO(),
         nombre: cita.paciente,
         cedula: cita.cedula,
         edad: cita.edad,
