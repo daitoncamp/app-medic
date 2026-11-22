@@ -125,7 +125,7 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `GET /api/pacientes?buscar=&limite=` | Con sesión | Busca por nombre o cédula (sin importar tildes) |
 | `GET /api/pacientes/:cedula` | Con sesión | Ficha: datos, antecedentes, alertas, odontograma, citas, diagnósticos y recetas. Queda auditado |
 | `POST /api/pacientes` | Recepción, Admin | Crea o actualiza un paciente por cédula |
-| `PATCH /api/pacientes/:cedula` | Recepción, Admin | Edita datos del paciente |
+| `PATCH /api/pacientes/:cedula` | Recepción, Admin | Edita datos del paciente (también corrige la cédula). La auditoría registra qué campos cambiaron |
 | `POST /api/pacientes/:cedula/antecedentes` | Recepción, Enfermería, Odontología, Admin | `{ tipo, descripcion }`. Tipos: ALERGIA, ENFERMEDAD, MEDICACION, CIRUGIA, EMBARAZO, HABITO, OTRO. 409 si ya está registrado |
 | `PATCH /api/pacientes/:cedula/antecedentes/:id` | Recepción, Enfermería, Odontología, Admin | `{ descripcion }` o `{ vigente: false }` cuando ya no aplica. No se borran |
 | `GET /api/citas?fecha=&desde=&hasta=&todas=1&estado=&buscar=` | Con sesión | Lista de citas (por defecto, las de hoy) |

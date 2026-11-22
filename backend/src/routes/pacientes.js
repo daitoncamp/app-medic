@@ -182,7 +182,11 @@ rutasPacientes.patch('/:cedula', puedeEditar, async (req, res) => {
     if (otro) throw conflicto('Ya existe otro paciente con esa cédula.');
   }
   const paciente = await prisma.paciente.update({ where: { id: actual.id }, data: datosPaciente(datos) });
-  await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Paciente', entidadId: paciente.id });
+  // La auditoría guarda qué campos cambiaron (no sus valores: son datos personales)
+  const comparable = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ?? null);
+  const campos = Object.keys(datos).filter((k) => datos[k] !== undefined
+    && comparable(k === 'fechaNacimiento' ? new Date(`${datos[k]}T00:00:00Z`) : datos[k]) !== comparable(actual[k]));
+  await auditar(req, { accion: 'ACTUALIZAR', entidad: 'Paciente', entidadId: paciente.id, detalle: { campos } });
   res.json({ paciente: pacienteResumen(paciente) });
 });
 

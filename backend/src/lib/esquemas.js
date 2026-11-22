@@ -4,6 +4,8 @@ import {
   NOMBRES_PROCEDIMIENTOS, NOMBRES_TIPOS_CITA, normalizarProcedimiento,
 } from '../../../shared/procedimientos.js';
 
+const vacioANulo = (v) => (v === undefined ? undefined : v || null);
+
 const SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ' ]+$/;
 
 export const esquemaCedula = z
@@ -38,11 +40,14 @@ export const esquemaPaciente = z.object({
   }, 'Fecha de nacimiento fuera de rango.'),
   sexo: z.enum(['FEMENINO', 'MASCULINO', 'OTRO'], { errorMap: () => ({ message: 'Seleccione una opción.' }) }),
   telefono: z.string().trim().regex(/^09\d{8}$/, 'Formato: 09xxxxxxxx (10 dígitos).'),
+  // Opcionales: si no vienen en la petición quedan como estaban (undefined no se guarda);
+  // si vienen vacíos se borran (null).
   correo: z.string().trim().toLowerCase().email('Correo inválido.').or(z.literal('')).optional()
-    .transform((v) => v || null),
-  contactoEmergenciaNombre: z.string().trim().max(120).optional().transform((v) => v || null),
-  contactoEmergenciaTelefono: z.string().trim().regex(/^0\d{8,9}$/, 'Teléfono inválido.').or(z.literal('')).optional()
-    .transform((v) => v || null),
+    .transform(vacioANulo),
+  contactoEmergenciaNombre: z.string().trim().max(120)
+    .regex(/^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ' ]*$/, 'Solo letras.').optional().transform(vacioANulo),
+  contactoEmergenciaTelefono: z.string().trim().regex(/^0\d{8,9}$/, 'Teléfono inválido (ej.: 0991234567).').or(z.literal('')).optional()
+    .transform(vacioANulo),
 });
 
 export const TIPOS_ANTECEDENTE = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'CIRUGIA', 'EMBARAZO', 'HABITO', 'OTRO'];
