@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  faBellSlash, faCheck, faCircleExclamation, faCommentDots, faCopy,
+  faBellSlash, faCheck, faCircleExclamation, faCommentDots, faCommentSms, faCopy,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   Badge, Button, Card, EmptyState, Field, IconButton, PageHeader, Table, useToast,
@@ -9,10 +9,12 @@ import {
 import { useRecurso } from '../../hooks/useRecurso';
 import { fechaLocalISO } from '../../services/clinica';
 import {
-  enlaceWhatsApp, listarRecordatorios, marcarRecordatorioEnviado, mensajeRecordatorio,
+  enlaceSMS, enlaceWhatsApp, listarRecordatorios, marcarRecordatorioEnviado, mensajeRecordatorio, mensajeSMS,
 } from '../../services/recordatoriosApi';
 import { fechaLarga, formatearFechaHora } from '../../utils/formato';
 import styles from './Recordatorios.module.css';
+
+const NOMBRE_CANAL = { WHATSAPP: 'WhatsApp', SMS: 'SMS', CORREO: 'correo' };
 
 const sumarDias = (dias) => {
   const d = new Date();
@@ -22,25 +24,31 @@ const sumarDias = (dias) => {
 
 /**
  * Recordatorios de las citas de mañana (o del día que se elija).
- * Recepción abre WhatsApp con el mensaje listo y luego marca el envío,
- * así el equipo sabe a quién ya se avisó.
+ * Recepción abre WhatsApp o la app de mensajes (SMS) con el mensaje listo y
+ * luego marca el envío, así el equipo sabe a quién ya se avisó y por dónde.
  */
 function RecordatoriosPage() {
   const toast = useToast();
   const [fecha, setFecha] = useState(() => sumarDias(1));
-  const [abiertos, setAbiertos] = useState({}); // citas cuyo WhatsApp ya se abrió
+  const [abiertos, setAbiertos] = useState({}); // { citaId: 'WHATSAPP' | 'SMS' }: canal que se abrió
   const { datos, cargando, error, recargar } = useRecurso(() => listarRecordatorios(fecha), [fecha]);
   const citas = datos?.fecha === fecha ? datos.citas : [];
 
   const abrirWhatsApp = (cita) => {
     window.open(enlaceWhatsApp(cita.telefono, mensajeRecordatorio(cita)), '_blank', 'noopener');
-    setAbiertos((a) => ({ ...a, [cita.id]: true }));
+    setAbiertos((a) => ({ ...a, [cita.id]: 'WHATSAPP' }));
   };
 
-  const marcar = async (cita) => {
+  // sms: abre la app de mensajes del celular (en la computadora, solo si hay una vinculada)
+  const abrirSMS = (cita) => {
+    window.location.href = enlaceSMS(cita.telefono, mensajeSMS(cita));
+    setAbiertos((a) => ({ ...a, [cita.id]: 'SMS' }));
+  };
+
+  const marcar = async (cita, canal) => {
     try {
-      await marcarRecordatorioEnviado(cita.id);
-      toast.success(`Recordatorio de ${cita.paciente} registrado.`);
+      await marcarRecordatorioEnviado(cita.id, canal);
+      toast.success(`Recordatorio por ${NOMBRE_CANAL[canal]} de ${cita.paciente} registrado.`);
       recargar();
     } catch (e) {
       toast.error(e.message);
@@ -50,7 +58,8 @@ function RecordatoriosPage() {
 
   const copiar = async (cita) => {
     try {
-      await navigator.clipboard.writeText(mensajeRecordatorio(cita));
+      // El mensaje corto sirve para cualquier canal
+      await navigator.clipboard.writeText(mensajeSMS(cita));
       toast.success('Mensaje copiado.');
     } catch {
       toast.error('No se pudo copiar el mensaje.');
@@ -74,7 +83,7 @@ function RecordatoriosPage() {
       key: 'recordatorio',
       header: 'Recordatorio',
       render: (c) => (c.recordatorio
-        ? <Badge tone="success">Enviado {formatearFechaHora(c.recordatorio.enviadoEn)}</Badge>
+        ? <Badge tone="success">{NOMBRE_CANAL[c.recordatorio.canal]} · {formatearFechaHora(c.recordatorio.enviadoEn)}</Badge>
         : <Badge tone="warning">Pendiente</Badge>),
     },
     {
@@ -85,11 +94,25 @@ function RecordatoriosPage() {
         <span className={styles.actions}>
           <IconButton icon={faCopy} label={`Copiar mensaje para ${c.paciente}`} onClick={() => copiar(c)} />
           {abiertos[c.id] && !c.recordatorio ? (
-            <Button size="sm" icon={faCheck} onClick={() => marcar(c)}>Marcar enviado</Button>
+            <>
+              <Button size="sm" icon={faCheck} onClick={() => marcar(c, abiertos[c.id])}>
+                Marcar enviado por {NOMBRE_CANAL[abiertos[c.id]]}
+              </Button>
+              <IconButton
+                icon={abiertos[c.id] === 'SMS' ? faCommentDots : faCommentSms}
+                label={abiertos[c.id] === 'SMS' ? 'Usar WhatsApp' : 'Usar SMS'}
+                onClick={() => (abiertos[c.id] === 'SMS' ? abrirWhatsApp(c) : abrirSMS(c))}
+              />
+            </>
           ) : (
-            <Button size="sm" variant={c.recordatorio ? 'ghost' : 'secondary'} icon={faCommentDots} onClick={() => abrirWhatsApp(c)}>
-              {c.recordatorio ? 'Reenviar' : 'WhatsApp'}
-            </Button>
+            <>
+              <Button size="sm" variant={c.recordatorio ? 'ghost' : 'secondary'} icon={faCommentDots} onClick={() => abrirWhatsApp(c)}>
+                WhatsApp
+              </Button>
+              <Button size="sm" variant={c.recordatorio ? 'ghost' : 'secondary'} icon={faCommentSms} onClick={() => abrirSMS(c)}>
+                SMS
+              </Button>
+            </>
           )}
         </span>
       ),
@@ -121,7 +144,7 @@ function RecordatoriosPage() {
     <>
       <PageHeader
         title="Recordatorios"
-        subtitle="Avisa por WhatsApp a los pacientes que tienen cita."
+        subtitle="Avisa por WhatsApp o por mensaje de texto a los pacientes que tienen cita."
       />
 
       <Card padded={false}>
@@ -149,8 +172,10 @@ function RecordatoriosPage() {
       </Card>
 
       <p className={styles.nota}>
-        El botón abre WhatsApp (en el celular o en WhatsApp Web) con el mensaje escrito; solo hay que enviarlo.
-        Después, marca el envío para que el resto del equipo sepa que ya se avisó.
+        WhatsApp se abre en el celular o en WhatsApp Web con el mensaje escrito. SMS abre la app de mensajes
+        del celular con un texto corto y sin tildes, para que se cobre como un solo mensaje; en la computadora
+        solo funciona si hay una app de mensajes vinculada al celular (si no, copia el mensaje).
+        Después de enviarlo, marca el envío para que el resto del equipo sepa que ya se avisó.
       </p>
     </>
   );
