@@ -32,7 +32,14 @@ npm run dev       # http://localhost:5173 (las llamadas a /api pasan al backend)
 npm run build     # compilación de producción en dist/
 npm run preview   # sirve la compilación localmente
 npm run lint      # revisa el código con ESLint
+npm test          # pruebas con Vitest (reglas clínicas compartidas y utilidades)
 ```
+
+### Pruebas e integración continua
+
+- `npm test` en la raíz prueba las reglas de `shared/` (signos vitales, alergias, odontograma, procedimientos) y utilidades del frontend.
+- `npm test` en `backend/` prueba fechas, validaciones y el cierre del día. La prueba de la API (`backend/tests/api.test.js`) recorre el flujo completo contra PostgreSQL y solo corre con `RUN_API_TESTS=1`, porque modifica datos.
+- GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada push y pull request: lint, pruebas y build del frontend; y en el backend crea un PostgreSQL 17 vacío, aplica las migraciones, carga el seed y corre todas las pruebas, incluida la de la API.
 
 ## Usuarios de demostración
 
@@ -109,7 +116,7 @@ Plan de trabajo:
 2. **Autenticación**: contraseñas cifradas, sesión en cookie, roles en el servidor, bloqueo por intentos y auditoría (hecho)
 3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
 4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
-5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp, cierre automático del día y edición de pacientes (hecho)
-6. Calidad: pruebas con Vitest, CI en GitHub Actions y TypeScript
+5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp y SMS, cierre automático del día y edición de pacientes (hecho)
+6. **Calidad**: pruebas con Vitest y CI en GitHub Actions (hecho); pendiente: TypeScript y Prisma 7
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.
