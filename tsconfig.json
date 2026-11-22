@@ -1,0 +1,24 @@
+{
+  // TypeScript del frontend (src/) y de las reglas compartidas (shared/).
+  // Solo revisa tipos (npm run typecheck); Vite se encarga de compilar.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    // Mientras dure la migración, los archivos .js/.jsx que faltan se importan sin revisarse
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src", "shared"]
+}

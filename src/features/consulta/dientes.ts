@@ -1,8 +1,21 @@
 // ==================== DATOS DEL ODONTOGRAMA ====================
 // Compartidos por la pantalla (SVG) y por el historial en PDF.
 
+import type { Cara } from '../../types/api';
+import type { EstadoPieza, MarcaPieza } from '../../types/dominio';
+
+export type TipoDiente = 'incisivo' | 'canino' | 'premolar' | 'molar';
+
+export interface EstadoDienteInfo {
+  id: EstadoPieza;
+  label: string;
+  fill: string;
+  stroke: string;
+  text: string;
+}
+
 // Estados de un diente con sus colores (relleno de la corona, borde y texto)
-export const ESTADOS_DIENTE = [
+export const ESTADOS_DIENTE: EstadoDienteInfo[] = [
   { id: 'sano', label: 'Sano', fill: '#bbf7d0', stroke: '#16a34a', text: '#166534' },
   { id: 'caries', label: 'Caries', fill: '#fecaca', stroke: '#dc2626', text: '#991b1b' },
   { id: 'tratado', label: 'Tratado', fill: '#bfdbfe', stroke: '#2563eb', text: '#1e40af' },
@@ -10,7 +23,7 @@ export const ESTADOS_DIENTE = [
   { id: 'ausente', label: 'Ausente', fill: '#e5e7eb', stroke: '#6b7280', text: '#374151' },
 ];
 
-export const estadoDiente = (id) => ESTADOS_DIENTE.find((e) => e.id === id);
+export const estadoDiente = (id: string | null | undefined): EstadoDienteInfo | undefined => ESTADOS_DIENTE.find((e) => e.id === id);
 
 // Numeración FDI. Cada arcada se divide en dos cuadrantes (derecha | izquierda del paciente)
 export const DIENTES = {
@@ -24,14 +37,14 @@ export const DIENTES = {
   },
 };
 
-export const esSuperior = (numero) => [1, 2, 5, 6].includes(Math.floor(numero / 10));
+export const esSuperior = (numero: number): boolean => [1, 2, 5, 6].includes(Math.floor(numero / 10));
 
 /**
  * Tipo de pieza según su número FDI (el segundo dígito es la posición).
  * Permanentes: 1-2 incisivo, 3 canino, 4-5 premolar, 6-8 molar.
  * Temporales:  1-2 incisivo, 3 canino, 4-5 molar.
  */
-export const tipoDiente = (numero) => {
+export const tipoDiente = (numero: number): TipoDiente => {
   const cuadrante = Math.floor(numero / 10);
   const posicion = numero % 10;
   const temporal = cuadrante >= 5;
@@ -43,29 +56,32 @@ export const tipoDiente = (numero) => {
 
 // ==================== CARAS DEL DIENTE ====================
 
-const ANTERIOR = ['incisivo', 'canino'];
+const ANTERIOR: TipoDiente[] = ['incisivo', 'canino'];
 
 /** Nombre de la cara según el diente: oclusal/incisal y lingual/palatino */
-export const nombreCara = (cara, numero) => {
+export const nombreCara = (cara: string, numero: number): string => {
   const anterior = ANTERIOR.includes(tipoDiente(numero));
-  return {
+  const nombres: Record<string, string> = {
     VESTIBULAR: 'Vestibular',
     LINGUAL: esSuperior(numero) ? 'Palatino' : 'Lingual',
     MESIAL: 'Mesial',
     DISTAL: 'Distal',
     OCLUSAL: anterior ? 'Incisal' : 'Oclusal',
-  }[cara] || cara;
+  };
+  return nombres[cara] || cara;
 };
 
 /** Abreviatura (O, I, M, D, V, L, P) para listas y el PDF */
-export const abreviaturaCara = (cara, numero) => nombreCara(cara, numero).charAt(0);
+export const abreviaturaCara = (cara: string, numero: number): string => nombreCara(cara, numero).charAt(0);
 
 /**
  * Qué cara va en cada lado del dibujo de 5 caras, visto de frente al paciente:
  * - arriba/abajo: vestibular hacia afuera de la boca (arriba en la arcada superior, abajo en la inferior)
  * - izquierda/derecha: mesial hacia la línea media
  */
-export const carasPorPosicion = (numero) => {
+export type PosicionCara = 'arriba' | 'abajo' | 'izquierda' | 'derecha' | 'centro';
+
+export const carasPorPosicion = (numero: number): Record<PosicionCara, Cara> => {
   const cuadrante = Math.floor(numero / 10);
   const ladoDerechoDelPaciente = [1, 4, 5, 8].includes(cuadrante); // se dibuja a la izquierda
   return {
@@ -77,10 +93,10 @@ export const carasPorPosicion = (numero) => {
   };
 };
 
-const PRIORIDAD = ['caries', 'observacion', 'tratado', 'sano'];
+const PRIORIDAD: EstadoPieza[] = ['caries', 'observacion', 'tratado', 'sano'];
 
 /** Estado que resume la pieza (para el color del número y los conteos) */
-export const estadoPrincipal = (marca) => {
+export const estadoPrincipal = (marca: MarcaPieza | null | undefined): EstadoPieza | null => {
   if (!marca) return null;
   if (marca.completa) return marca.completa;
   const caras = Object.values(marca.caras || {});
@@ -88,4 +104,4 @@ export const estadoPrincipal = (marca) => {
 };
 
 /** Estado de una cara: su propia marca o, si no tiene, la del diente completo */
-export const estadoCara = (marca, cara) => marca?.caras?.[cara] || marca?.completa || null;
+export const estadoCara = (marca: MarcaPieza | null | undefined, cara: Cara): EstadoPieza | null => marca?.caras?.[cara] || marca?.completa || null;

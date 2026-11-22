@@ -8,6 +8,8 @@
 // la sesión en cada petición.
 
 import { api } from './api';
+import type { RolApi, UsuarioApi } from '../types/api';
+import type { Rol, Usuario } from '../types/dominio';
 
 const SESION_KEY = 'sesion';
 export const EVENTO_USUARIOS = 'usuariosUpdate';
@@ -17,10 +19,10 @@ export const ROLES = Object.freeze({
   RECEPCIONISTA: 'Recepcionista',
   ENFERMERA: 'Enfermera',
   ODONTOLOGA: 'Odontologa',
-});
+} as const);
 
 // Texto que se muestra en pantalla
-export const NOMBRE_ROL = Object.freeze({
+export const NOMBRE_ROL: Readonly<Record<Rol, string>> = Object.freeze({
   [ROLES.ADMIN]: 'Administración',
   [ROLES.RECEPCIONISTA]: 'Recepción',
   [ROLES.ENFERMERA]: 'Enfermería',
@@ -28,19 +30,21 @@ export const NOMBRE_ROL = Object.freeze({
 });
 
 // El backend usa ADMIN, RECEPCIONISTA…; la app usa los valores de ROLES
-const DESDE_API = {
+const DESDE_API: Record<RolApi, Rol> = {
   ADMIN: ROLES.ADMIN,
   RECEPCIONISTA: ROLES.RECEPCIONISTA,
   ENFERMERA: ROLES.ENFERMERA,
   ODONTOLOGA: ROLES.ODONTOLOGA,
 };
-const HACIA_API = Object.fromEntries(Object.entries(DESDE_API).map(([api, app]) => [app, api]));
+const HACIA_API = Object.fromEntries(Object.entries(DESDE_API).map(([api, app]) => [app, api])) as Record<Rol, RolApi>;
 
-const adaptarUsuario = (u) => ({ ...u, rol: DESDE_API[u.rol] || u.rol });
+const adaptarUsuario = (u: UsuarioApi): Usuario => ({ ...u, rol: DESDE_API[u.rol] });
+
+interface RespuestaUsuario { usuario: UsuarioApi }
 
 // ==================== SESIÓN ====================
 
-const guardarSesion = (usuario) => {
+const guardarSesion = (usuario: UsuarioApi): Usuario => {
   const sesion = adaptarUsuario(usuario);
   sessionStorage.setItem(SESION_KEY, JSON.stringify(sesion));
   return sesion;
@@ -52,9 +56,9 @@ const borrarSesion = () => {
 };
 
 /** Lee la copia local de la sesión (lectura inmediata para la interfaz) */
-export function obtenerSesion() {
+export function obtenerSesion(): Usuario | null {
   try {
-    const sesion = JSON.parse(sessionStorage.getItem(SESION_KEY));
+    const sesion = JSON.parse(sessionStorage.getItem(SESION_KEY) ?? 'null') as Usuario | null;
     return sesion?.rol ? sesion : null;
   } catch {
     return null;
@@ -65,8 +69,8 @@ export function obtenerSesion() {
  * Inicia sesión. El rol lo decide el servidor.
  * Lanza un Error con el mensaje para mostrar si algo falla.
  */
-export async function iniciarSesion(email, password) {
-  const { usuario } = await api('/auth/login', {
+export async function iniciarSesion(email: string, password: string): Promise<Usuario> {
+  const { usuario } = await api<RespuestaUsuario>('/auth/login', {
     method: 'POST',
     body: { email: email.trim(), password },
     avisarSiExpira: false,
@@ -79,9 +83,9 @@ export async function iniciarSesion(email, password) {
  * Pregunta al servidor si la cookie de sesión sigue siendo válida.
  * Se llama al abrir la app. Devuelve la sesión o null.
  */
-export async function verificarSesion() {
+export async function verificarSesion(): Promise<Usuario | null> {
   try {
-    const { usuario } = await api('/auth/yo', { avisarSiExpira: false });
+    const { usuario } = await api<RespuestaUsuario>('/auth/yo', { avisarSiExpira: false });
     return guardarSesion(usuario);
   } catch {
     borrarSesion();
@@ -89,7 +93,7 @@ export async function verificarSesion() {
   }
 }
 
-export async function cerrarSesion() {
+export async function cerrarSesion(): Promise<void> {
   try {
     await api('/auth/logout', { method: 'POST', avisarSiExpira: false });
   } catch {
@@ -102,8 +106,8 @@ export async function cerrarSesion() {
 /** Borra la copia local sin llamar al servidor (sesión vencida) */
 export const olvidarSesion = borrarSesion;
 
-export async function cambiarPassword(actual, nueva) {
-  const { usuario } = await api('/auth/cambiar-password', { method: 'POST', body: { actual, nueva } });
+export async function cambiarPassword(actual: string, nueva: string): Promise<Usuario> {
+  const { usuario } = await api<RespuestaUsuario>('/auth/cambiar-password', { method: 'POST', body: { actual, nueva } });
   return guardarSesion(usuario);
 }
 
@@ -111,13 +115,20 @@ export async function cambiarPassword(actual, nueva) {
 
 const avisarCambioUsuarios = () => window.dispatchEvent(new CustomEvent(EVENTO_USUARIOS));
 
-export async function listarUsuarios() {
-  const { usuarios } = await api('/usuarios');
+export async function listarUsuarios(): Promise<Usuario[]> {
+  const { usuarios } = await api<{ usuarios: UsuarioApi[] }>('/usuarios');
   return usuarios.map(adaptarUsuario);
 }
 
-export async function crearUsuario({ nombre, email, rol, password }) {
-  const { usuario } = await api('/usuarios', {
+export interface NuevoUsuario {
+  nombre: string;
+  email: string;
+  rol: Rol;
+  password: string;
+}
+
+export async function crearUsuario({ nombre, email, rol, password }: NuevoUsuario): Promise<Usuario> {
+  const { usuario } = await api<RespuestaUsuario>('/usuarios', {
     method: 'POST',
     body: { nombre, email, rol: HACIA_API[rol], password },
   });
@@ -125,14 +136,14 @@ export async function crearUsuario({ nombre, email, rol, password }) {
   return adaptarUsuario(usuario);
 }
 
-export async function cambiarEstadoUsuario(id, activo) {
-  const { usuario } = await api(`/usuarios/${id}`, { method: 'PATCH', body: { activo } });
+export async function cambiarEstadoUsuario(id: string, activo: boolean): Promise<Usuario> {
+  const { usuario } = await api<RespuestaUsuario>(`/usuarios/${id}`, { method: 'PATCH', body: { activo } });
   avisarCambioUsuarios();
   return adaptarUsuario(usuario);
 }
 
-export async function restablecerPassword(id, password) {
-  const { usuario } = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password } });
+export async function restablecerPassword(id: string, password: string): Promise<Usuario> {
+  const { usuario } = await api<RespuestaUsuario>(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password } });
   avisarCambioUsuarios();
   return adaptarUsuario(usuario);
 }

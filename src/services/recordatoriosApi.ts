@@ -2,12 +2,16 @@
 
 import { api } from './api';
 import { adaptarCita } from './recepcionApi';
+import type { CanalRecordatorio, RecordatorioApi, RecordatoriosApi } from '../types/api';
+import type { Cita, CitaConRecordatorio } from '../types/dominio';
 
 const MAYORIA_DE_EDAD = 18;
 
 /** Citas del día (por defecto, mañana) con su último recordatorio enviado */
-export async function listarRecordatorios(fecha) {
-  const d = await api(`/recordatorios${fecha ? `?fecha=${fecha}` : ''}`);
+export async function listarRecordatorios(
+  fecha?: string,
+): Promise<{ fecha: string; pendientes: number; citas: CitaConRecordatorio[] }> {
+  const d = await api<RecordatoriosApi>(`/recordatorios${fecha ? `?fecha=${fecha}` : ''}`);
   return {
     fecha: d.fecha,
     pendientes: d.pendientes,
@@ -15,12 +19,15 @@ export async function listarRecordatorios(fecha) {
   };
 }
 
-export async function marcarRecordatorioEnviado(citaId, canal = 'WHATSAPP') {
-  return (await api(`/recordatorios/${citaId}/enviado`, { method: 'POST', body: { canal } })).recordatorio;
+export async function marcarRecordatorioEnviado(
+  citaId: string,
+  canal: CanalRecordatorio = 'WHATSAPP',
+): Promise<RecordatorioApi> {
+  return (await api<{ recordatorio: RecordatorioApi }>(`/recordatorios/${citaId}/enviado`, { method: 'POST', body: { canal } })).recordatorio;
 }
 
 /** "lunes 23 de noviembre" */
-const diaLargo = (fecha) => new Date(`${fecha}T12:00:00`).toLocaleDateString('es-EC', {
+const diaLargo = (fecha: string): string => new Date(`${fecha}T12:00:00`).toLocaleDateString('es-EC', {
   weekday: 'long', day: 'numeric', month: 'long',
 });
 
@@ -28,7 +35,7 @@ const diaLargo = (fecha) => new Date(`${fecha}T12:00:00`).toLocaleDateString('es
  * Texto del recordatorio. Si el paciente es menor de edad, el mensaje va
  * dirigido a su representante.
  */
-export function mensajeRecordatorio(cita) {
+export function mensajeRecordatorio(cita: Cita): string {
   const menor = Number(cita.edad) < MAYORIA_DE_EDAD;
   const nombre = cita.datosPaciente?.nombres || cita.paciente;
   const saludo = menor
@@ -41,7 +48,7 @@ export function mensajeRecordatorio(cita) {
 }
 
 /** Enlace de WhatsApp con el mensaje listo. 0991234567 → 593991234567 */
-export function enlaceWhatsApp(telefono, mensaje) {
+export function enlaceWhatsApp(telefono: string, mensaje: string): string {
   const numero = `593${String(telefono).replace(/\D/g, '').replace(/^0/, '')}`;
   return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
 }
@@ -52,29 +59,29 @@ export function enlaceWhatsApp(telefono, mensaje) {
 
 export const LIMITE_SMS = 160;
 
-const sinTildes = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
+const sinTildes = (texto: string): string => texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /** "dom 22 nov" */
-const diaCorto = (fecha) => new Date(`${fecha}T12:00:00`)
+const diaCorto = (fecha: string): string => new Date(`${fecha}T12:00:00`)
   .toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })
   .replace(/\./g, '').replace(',', '');
 
 /** "Mateo Vera" (primer nombre y primer apellido) */
-const nombreCorto = (cita) => {
+const nombreCorto = (cita: Cita): string | undefined => {
   const nombres = cita.datosPaciente?.nombres?.split(' ')[0];
   const apellidos = cita.datosPaciente?.apellidos?.split(' ')[0];
   return nombres && apellidos ? `${nombres} ${apellidos}` : cita.paciente;
 };
 
 /** Mensaje de texto corto (sin tildes, normalmente un solo SMS) */
-export function mensajeSMS(cita) {
+export function mensajeSMS(cita: Cita): string {
   const base = `Clinica Odontologica ULEAM: ${nombreCorto(cita)} tiene cita de ${cita.consulta.toLowerCase()} `
     + `el ${diaCorto(cita.fecha)} a las ${cita.hora}.`;
   // Se agregan las indicaciones, de la más a la menos importante, mientras quepan en un SMS,
   // y luego se escriben en orden natural
   const reprogramar = ' Si no puede asistir, responda este SMS.';
   const llegar = ' Llegue 10 min antes.';
-  const cabe = (t) => sinTildes(t).length <= LIMITE_SMS;
+  const cabe = (t: string) => sinTildes(t).length <= LIMITE_SMS;
   const conReprogramar = cabe(base + reprogramar);
   const conLlegar = cabe(base + (conReprogramar ? reprogramar : '') + llegar);
   const texto = base + (conLlegar ? llegar : '') + (conReprogramar ? reprogramar : '');
@@ -85,7 +92,7 @@ export function mensajeSMS(cita) {
  * Enlace que abre la app de mensajes con el texto listo.
  * En iPhone el texto va después de "&"; en Android, después de "?".
  */
-export function enlaceSMS(telefono, mensaje) {
+export function enlaceSMS(telefono: string, mensaje: string): string {
   const numero = `+593${String(telefono).replace(/\D/g, '').replace(/^0/, '')}`;
   const separador = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
   return `sms:${numero}${separador}body=${encodeURIComponent(mensaje)}`;

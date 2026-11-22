@@ -33,6 +33,7 @@ npm run build     # compilación de producción en dist/
 npm run preview   # sirve la compilación localmente
 npm run lint      # revisa el código con ESLint
 npm test          # pruebas con Vitest (reglas clínicas compartidas y utilidades)
+npm run typecheck # revisa los tipos de TypeScript
 ```
 
 ### Pruebas e integración continua
@@ -79,12 +80,16 @@ src/
 │   └── usuarios/           gestión de usuarios (administración)
 ├── hooks/                  useRecurso (carga de la API con actualización periódica) y useDiferido
 ├── services/
-│   ├── api.js              fetch a /api con la cookie de sesión y errores en español
-│   ├── authService.js      login, sesión, roles y usuarios
-│   ├── recepcionApi.js     pacientes, citas y ficha
-│   ├── enfermeriaApi.js    sala de espera y signos vitales
-│   ├── consultaApi.js      agenda, diagnósticos, odontograma, recetas
-│   └── clinica.js          constantes compartidas (estados de cita, fechas)
+│   ├── api.ts              fetch a /api con la cookie de sesión y errores en español
+│   ├── authService.ts      login, sesión, roles y usuarios
+│   ├── recepcionApi.ts     pacientes, citas y ficha
+│   ├── enfermeriaApi.ts    sala de espera y signos vitales
+│   ├── consultaApi.ts      agenda, diagnósticos, odontograma, recetas
+│   ├── recordatoriosApi.ts recordatorios por WhatsApp y SMS
+│   └── clinica.ts          constantes compartidas (estados de cita, fechas)
+├── types/
+│   ├── api.ts              forma del JSON que envía el backend
+│   └── dominio.ts          datos que usan las pantallas (Cita, Paciente, Alerta…)
 └── utils/                  validaciones y formatos de fecha
 shared/                     reglas que usan el frontend y el backend:
 ├── signosVitales.js        rangos por edad y alertas

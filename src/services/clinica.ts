@@ -9,10 +9,10 @@ export const ESTADOS_CITA = Object.freeze({
   ATENDIDA: 'Atendida',
   NO_ASISTIO: 'No asistió',
   ANULADA: 'Anulada',
-});
+} as const);
 
 // IDs únicos. crypto.randomUUID solo existe en contextos seguros (https o localhost).
-export const generarId = (prefijo) => {
+export const generarId = (prefijo: string): string => {
   const unico = globalThis.crypto?.randomUUID
     ? globalThis.crypto.randomUUID()
     : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -21,7 +21,7 @@ export const generarId = (prefijo) => {
 
 // Fecha local en formato YYYY-MM-DD (toISOString usa UTC y en Ecuador
 // cambia de día a las 19:00).
-export const fechaLocalISO = (fecha = new Date()) => {
+export const fechaLocalISO = (fecha: Date | string | number = new Date()): string => {
   const d = new Date(fecha);
   const mes = String(d.getMonth() + 1).padStart(2, '0');
   const dia = String(d.getDate()).padStart(2, '0');

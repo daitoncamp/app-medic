@@ -1,6 +1,8 @@
 // Valores del formulario de paciente
 
-export const PACIENTE_VACIO = {
+import type { FormularioPaciente, Paciente } from '../../types/dominio';
+
+export const PACIENTE_VACIO: FormularioPaciente = {
   cedula: '',
   nombres: '',
   apellidos: '',
@@ -13,7 +15,7 @@ export const PACIENTE_VACIO = {
 };
 
 /** Copia al formulario los datos de un paciente existente */
-export const pacienteAFormulario = (p) => ({
+export const pacienteAFormulario = (p: Partial<Paciente>): FormularioPaciente => ({
   cedula: p.cedula || '',
   nombres: p.nombres || '',
   apellidos: p.apellidos || '',
