@@ -18,23 +18,24 @@ export const MOTIVO_SIN_ATENDER = 'Cierre automático del día: el paciente lleg
 
 const CADA_MINUTOS = 15;
 
-export async function cerrarDiasAnteriores(ahora = new Date()) {
-  const { desde: inicioDeHoy } = rangoDia(hoyLocal());
+/** db se puede reemplazar en las pruebas por una base en memoria */
+export async function cerrarDiasAnteriores({ ahora = new Date(), db = prisma } = {}) {
+  const { desde: inicioDeHoy } = rangoDia(hoyLocal(ahora));
   const anteriores = { inicio: { lt: inicioDeHoy } };
 
   const [pendientes, confirmadas] = await Promise.all([
-    prisma.cita.findMany({ where: { ...anteriores, estado: 'PENDIENTE' }, select: { id: true } }),
-    prisma.cita.findMany({ where: { ...anteriores, estado: 'CONFIRMADA' }, select: { id: true } }),
+    db.cita.findMany({ where: { ...anteriores, estado: 'PENDIENTE' }, select: { id: true } }),
+    db.cita.findMany({ where: { ...anteriores, estado: 'CONFIRMADA' }, select: { id: true } }),
   ]);
   if (!pendientes.length && !confirmadas.length) return { noAsistieron: 0, sinAtender: 0 };
 
   // El estado se vuelve a comprobar en el update por si alguien la cambió mientras tanto
-  const [noAsistieron, sinAtender] = await prisma.$transaction([
-    prisma.cita.updateMany({
+  const [noAsistieron, sinAtender] = await db.$transaction([
+    db.cita.updateMany({
       where: { id: { in: pendientes.map((c) => c.id) }, estado: 'PENDIENTE' },
       data: { estado: 'NO_ASISTIO' },
     }),
-    prisma.cita.updateMany({
+    db.cita.updateMany({
       where: { id: { in: confirmadas.map((c) => c.id) }, estado: 'CONFIRMADA' },
       data: { estado: 'ANULADA', anuladaEn: ahora, motivoAnulacion: MOTIVO_SIN_ATENDER },
     }),
@@ -45,7 +46,7 @@ export async function cerrarDiasAnteriores(ahora = new Date()) {
     accion: 'ACTUALIZAR',
     entidad: 'CierreDelDia',
     detalle: { ...resultado, citas: [...pendientes, ...confirmadas].map((c) => c.id) },
-  });
+  }, db);
   console.log(`Cierre del día: ${resultado.noAsistieron} no asistieron, ${resultado.sinAtender} sin atender.`);
   return resultado;
 }

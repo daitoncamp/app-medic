@@ -15,7 +15,7 @@ export const fechaLocal = (date) => new Date(date.getTime() + OFFSET_MS).toISOSt
 /** Date → "09:30" en Ecuador */
 export const horaLocal = (date) => new Date(date.getTime() + OFFSET_MS).toISOString().slice(11, 16);
 
-export const hoyLocal = () => fechaLocal(new Date());
+export const hoyLocal = (ahora = new Date()) => fechaLocal(ahora);
 
 /** Inicio y fin (exclusivo) de un día de Ecuador */
 export const rangoDia = (fecha) => {

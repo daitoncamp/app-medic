@@ -238,6 +238,24 @@ Por esa carpeta compartida, si algún día armas una imagen de Docker del backen
 | `npm run db:seed` | Borra los datos clínicos y carga los de prueba |
 | `npm run db:reset` | Borra toda la base, aplica las migraciones y ejecuta el seed |
 | `npm run db:studio` | Abre Prisma Studio para ver y editar datos |
+| `npm test` | Pruebas unitarias (fechas, validaciones, cierre del día) |
+
+### Prueba de la API
+
+`tests/api.test.js` recorre el flujo recepción → enfermería → odontología con la API real
+y **modifica la base de datos**, así que no corre por defecto. GitHub Actions la ejecuta en
+una base vacía. Para correrla en tu PC, usa una base aparte, nunca la de desarrollo:
+
+```powershell
+# Base de pruebas (créala una vez en pgAdmin o con: createdb -U postgres clinica_pruebas)
+$env:DATABASE_URL = "postgresql://postgres:TU_CLAVE@localhost:5432/clinica_pruebas?schema=public"
+npx prisma migrate deploy
+npm run db:seed
+$env:RUN_API_TESTS = "1"; npm test
+Remove-Item Env:RUN_API_TESTS, Env:DATABASE_URL
+```
+
+Vuelve a ejecutar el seed antes de cada corrida: la prueba espera los datos iniciales.
 
 ## Estructura
 

@@ -4,9 +4,9 @@
 
 import { prisma } from './prisma.js';
 
-export async function auditar(req, { accion, entidad, entidadId = null, detalle = null, usuarioId }) {
+export async function auditar(req, { accion, entidad, entidadId = null, detalle = null, usuarioId }, db = prisma) {
   try {
-    await prisma.auditoria.create({
+    await db.auditoria.create({
       data: {
         usuarioId: usuarioId ?? req.usuario?.id ?? null,
         accion,
