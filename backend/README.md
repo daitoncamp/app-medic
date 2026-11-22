@@ -148,6 +148,18 @@ Todas las respuestas son JSON. Los errores tienen la forma `{ "error": "mensaje"
 | `POST /api/consultas/:citaId/consentimientos` | Odontología | `{ procedimiento, esRepresentante, firmante?: { nombre, cedula, parentesco }, aceptado: true }` |
 | `POST /api/consultas/:citaId/finalizar` | Odontología | La cita queda atendida |
 
+### Cierre automático del día
+
+Al arrancar y cada 15 minutos, el servidor cierra las citas de días anteriores que quedaron abiertas
+([`src/lib/cierreDia.js`](src/lib/cierreDia.js)):
+
+- **Pendiente → No asistió**: el paciente nunca llegó.
+- **Confirmada → Anulada**, con el motivo "el paciente llegó, pero no se registró su atención".
+- **Preparada** no se toca: pasó por enfermería, así que la odontóloga la sigue viendo en su agenda
+  como "Sin finalizar" hasta que la cierre.
+
+Cada cierre queda en la auditoría (entidad `CierreDelDia`) con las citas afectadas.
+
 ### Recordatorios
 
 | Ruta | Quién | Qué hace |

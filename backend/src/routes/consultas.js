@@ -92,8 +92,9 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
   const inicioMes = rangoDia(`${hoy.slice(0, 7)}-01`).desde;
 
   const [preparados, atendidosHoy, procedimientos] = await Promise.all([
+    // Los de hoy y los de días anteriores que quedaron sin finalizar
     prisma.cita.findMany({
-      where: { inicio: { gte: desde, lt: hasta }, estado: 'PREPARADA' },
+      where: { inicio: { lt: hasta }, estado: 'PREPARADA' },
       include: {
         paciente: {
           include: { antecedentes: { where: { vigente: true, tipo: 'ALERGIA' } } },
@@ -101,7 +102,7 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
         signosVitales: true,
         alertas: { orderBy: { creadoEn: 'asc' } },
       },
-      orderBy: [{ preparadaEn: 'asc' }],
+      orderBy: [{ inicio: 'asc' }],
     }),
     prisma.cita.count({ where: { atendidaEn: { gte: desde, lt: hasta } } }),
     prisma.diagnostico.groupBy({
@@ -111,17 +112,25 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
     }),
   ]);
 
+  // Primero los de hoy en el orden en que los preparó enfermería; al final, los pendientes de otros días
+  const deHoy = (c) => c.inicio >= desde;
+  const ordenados = [...preparados].sort((a, b) => {
+    if (deHoy(a) !== deHoy(b)) return deHoy(a) ? -1 : 1;
+    return deHoy(a) ? a.preparadaEn - b.preparadaEn : a.inicio - b.inicio;
+  });
+
   res.json({
-    agenda: preparados.map((c) => ({
+    agenda: ordenados.map((c) => ({
       ...citaPublica(c),
       signosVitales: signosPublicos(c.signosVitales),
       alertas: c.alertas.map(alertaPublica),
       alergias: c.paciente.antecedentes.map((a) => a.descripcion),
     })),
     metricas: {
-      preparados: preparados.length,
+      preparados: preparados.filter(deHoy).length,
+      sinFinalizarAnteriores: preparados.filter((c) => !deHoy(c)).length,
       atendidosHoy,
-      conAlertas: preparados.filter((c) => c.alertas.length).length,
+      conAlertas: preparados.filter((c) => deHoy(c) && c.alertas.length).length,
       // Los nombres antiguos ("Resina") se suman al actual
       procedimientosMes: Object.entries(procedimientos.reduce((totales, p) => {
         const nombre = normalizarProcedimiento(p.procedimiento);
