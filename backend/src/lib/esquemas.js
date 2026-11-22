@@ -1,5 +1,8 @@
 // ==================== ESQUEMAS DE VALIDACIÓN COMPARTIDOS ====================
 import { z } from 'zod';
+import {
+  NOMBRES_PROCEDIMIENTOS, NOMBRES_TIPOS_CITA, normalizarProcedimiento,
+} from '../../../shared/procedimientos.js';
 
 const SOLO_LETRAS = /^[A-Za-zÁÉÍÓÚáéíóúÜüÑñ' ]+$/;
 
@@ -44,11 +47,20 @@ export const esquemaPaciente = z.object({
 
 export const TIPOS_ANTECEDENTE = ['ALERGIA', 'ENFERMEDAD', 'MEDICACION', 'CIRUGIA', 'EMBARAZO', 'HABITO', 'OTRO'];
 
-export const TIPOS_CONSULTA = ['Revisión', 'Limpieza dental', 'Extracción', 'Endodoncia', 'Ortodoncia', 'Resina', 'Corona'];
 
 // ==================== CONSULTA ODONTOLÓGICA ====================
 
-export const PROCEDIMIENTOS = ['Limpieza', 'Extracción', 'Resina', 'Corona', 'Endodoncia', 'Ortodoncia', 'Revisión'];
+// Los nombres antiguos guardados ("Limpieza dental", "Resina") se aceptan y se convierten al actual
+export const esquemaTipoCita = z.preprocess(
+  normalizarProcedimiento,
+  z.enum(NOMBRES_TIPOS_CITA, { errorMap: () => ({ message: 'Seleccione el tipo de consulta.' }) }),
+);
+
+export const esquemaProcedimiento = z.preprocess(
+  normalizarProcedimiento,
+  z.enum(NOMBRES_PROCEDIMIENTOS, { errorMap: () => ({ message: 'Elige un procedimiento de la lista.' }) }),
+);
+
 
 /** Piezas válidas en numeración FDI (permanentes 11-48, temporales 51-85) */
 export const esPiezaFDI = (n) => {

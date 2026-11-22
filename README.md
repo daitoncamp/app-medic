@@ -82,6 +82,7 @@ src/
 shared/                     reglas que usan el frontend y el backend:
 ├── signosVitales.js        rangos por edad y alertas
 ├── alergias.js             aviso de alergia al recetar
+├── procedimientos.js       lista única de procedimientos y tipos de cita
 ├── consentimientos.js      plantillas del consentimiento informado
 └── odontograma.js          combinación de marcas por diente y por caras
 ```

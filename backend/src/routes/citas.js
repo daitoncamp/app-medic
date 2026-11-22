@@ -13,7 +13,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, noEncontrado, solicitudInvalida } from '../lib/errores.js';
-import { esquemaFecha, esquemaHora, esquemaPaciente, TIPOS_CONSULTA } from '../lib/esquemas.js';
+import {
+  esquemaFecha, esquemaHora, esquemaPaciente, esquemaTipoCita,
+} from '../lib/esquemas.js';
 import { aInstante, fechaLocal, hoyLocal, horaLocal, rangoDia } from '../lib/fechas.js';
 import { prisma } from '../lib/prisma.js';
 import { citaPublica } from '../lib/serializar.js';
@@ -83,7 +85,7 @@ const esquemaNuevaCita = z.object({
   paciente: esquemaPaciente,
   fecha: esquemaFecha,
   hora: esquemaHora,
-  tipoConsulta: z.enum(TIPOS_CONSULTA, { errorMap: () => ({ message: 'Seleccione el tipo de consulta.' }) }),
+  tipoConsulta: esquemaTipoCita,
   confirmar: z.boolean().optional().default(false),
 });
 
@@ -158,7 +160,7 @@ const esquemaEditar = z.object({
   paciente: esquemaPaciente,
   fecha: esquemaFecha,
   hora: esquemaHora,
-  tipoConsulta: z.enum(TIPOS_CONSULTA, { errorMap: () => ({ message: 'Seleccione el tipo de consulta.' }) }),
+  tipoConsulta: esquemaTipoCita,
 });
 
 rutasCitas.patch('/:id', puedeAgendar, async (req, res) => {

@@ -17,13 +17,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { revisarReceta } from '../../../shared/alergias.js';
 import { CARAS, resumirMarcas } from '../../../shared/odontograma.js';
+import { normalizarProcedimiento } from '../../../shared/procedimientos.js';
 import {
   MAYORIA_DE_EDAD, PARENTESCOS, PROCEDIMIENTOS_CON_CONSENTIMIENTO, requiereConsentimiento, textoConsentimiento,
 } from '../../../shared/consentimientos.js';
 import { auditar } from '../lib/auditoria.js';
 import { conflicto, ErrorApi, noEncontrado } from '../lib/errores.js';
 import {
-  esquemaCedula, esquemaPieza, esquemaPiezas, PROCEDIMIENTOS,
+  esquemaCedula, esquemaPieza, esquemaPiezas, esquemaProcedimiento,
 } from '../lib/esquemas.js';
 import { calcularEdad, fechaLocal, hoyLocal, rangoDia } from '../lib/fechas.js';
 import { prisma } from '../lib/prisma.js';
@@ -121,8 +122,12 @@ rutasConsultas.get('/agenda', puedeVer, async (req, res) => {
       preparados: preparados.length,
       atendidosHoy,
       conAlertas: preparados.filter((c) => c.alertas.length).length,
-      procedimientosMes: procedimientos
-        .map((p) => ({ procedimiento: p.procedimiento, total: p._count._all }))
+      // Los nombres antiguos ("Resina") se suman al actual
+      procedimientosMes: Object.entries(procedimientos.reduce((totales, p) => {
+        const nombre = normalizarProcedimiento(p.procedimiento);
+        return { ...totales, [nombre]: (totales[nombre] || 0) + p._count._all };
+      }, {}))
+        .map(([procedimiento, total]) => ({ procedimiento, total }))
         .sort((a, b) => b.total - a.total),
     },
   });
@@ -179,7 +184,7 @@ rutasConsultas.get('/:citaId', puedeVer, async (req, res) => {
 
 const esquemaDiagnostico = z.object({
   piezas: esquemaPiezas,
-  procedimiento: z.enum(PROCEDIMIENTOS, { errorMap: () => ({ message: 'Elige un procedimiento de la lista.' }) }),
+  procedimiento: esquemaProcedimiento,
   descripcion: z.string({ required_error: 'El diagnóstico es obligatorio.' }).trim()
     .min(3, 'Describe el diagnóstico (mínimo 3 caracteres).')
     .max(500, 'Máximo 500 caracteres.')
@@ -194,8 +199,8 @@ rutasConsultas.post('/:citaId/diagnosticos', puedeAtender, async (req, res) => {
 
   // Un procedimiento que se realiza (no solo se planifica) necesita consentimiento previo
   if (requiereConsentimiento(d.procedimiento) && d.estado !== 'PENDIENTE') {
-    const firmado = await prisma.consentimiento.findFirst({ where: { citaId: cita.id, procedimiento: d.procedimiento } });
-    if (!firmado) {
+    const firmados = await prisma.consentimiento.findMany({ where: { citaId: cita.id }, select: { procedimiento: true } });
+    if (!firmados.some((c) => normalizarProcedimiento(c.procedimiento) === d.procedimiento)) {
       throw new ErrorApi(409, `Falta el consentimiento informado para ${d.procedimiento.toLowerCase()}.`, {
         procedimiento: 'Registra el consentimiento informado antes de realizar este procedimiento, o márcalo como pendiente.',
       });

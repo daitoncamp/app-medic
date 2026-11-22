@@ -158,12 +158,21 @@ La API devuelve `{ [pieza]: { completa, caras: { OCLUSAL: "CARIES" } } }`.
 
 ### Consentimiento informado
 
-Extracción, endodoncia, resina, corona y ortodoncia requieren consentimiento antes de registrarse
-como realizados (completado o en proceso); como pendientes (planificados) no lo necesitan.
+Los procedimientos marcados con `consentimiento: true` en [`shared/procedimientos.js`](../shared/procedimientos.js)
+(restauraciones, pulpotomía, pulpectomía, endodoncia, raspado, extracción, cirugía de terceros molares,
+drenaje de absceso, corona, prótesis fija, ortodoncia y blanqueamiento) requieren consentimiento antes de
+registrarse como realizados (completado o en proceso); como pendientes (planificados) no lo necesitan.
 El texto sale de [`shared/consentimientos.js`](../shared/consentimientos.js) y se guarda tal cual se mostró.
 Si el paciente es menor de 18 años, la API exige que firme un representante. Se descarga un PDF para las firmas a mano,
 con un espacio de revocatoria. Los textos siguen las pautas del Acuerdo Ministerial 5316 del MSP,
 pero la clínica debe revisarlos y validarlos antes de usarlos con pacientes.
+
+### Procedimientos y tipos de cita
+
+La lista única está en [`shared/procedimientos.js`](../shared/procedimientos.js), agrupada (Prevención,
+Restauración, Endodoncia, Periodoncia, Cirugía, Prótesis…). Los tipos de cita son esos procedimientos más
+Revisión, Urgencia y Control. Los nombres de versiones anteriores que ya estén guardados ("Limpieza dental",
+"Resina") se siguen aceptando y se muestran con el nombre actual, así que no hace falta migrar datos.
 
 ### Recetas y alergias
 

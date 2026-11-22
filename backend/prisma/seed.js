@@ -104,7 +104,7 @@ async function main() {
     severidad: 'ALTA', titulo: 'Hipertensión estadio 2', descripcion: 'Presión de 148/92 mmHg (140/90 o más).',
   } });
   await prisma.diagnostico.create({ data: {
-    citaId: visita.id, piezas: [36], procedimiento: 'Resina', descripcion: 'Caries oclusal en primer molar inferior izquierdo',
+    citaId: visita.id, piezas: [36], procedimiento: 'Restauración con resina', descripcion: 'Caries oclusal en primer molar inferior izquierdo',
     estado: 'COMPLETADO', odontologoId: odontologa.id,
   } });
   await prisma.marcaOdontograma.createMany({ data: [
@@ -125,7 +125,7 @@ async function main() {
       confirmadaEn: new Date(), llegadaEn: new Date(), creadaPorId: recepcion.id },
     { pacienteId: rosa.id, inicio: enEcuador(hoy, '09:30'), tipoConsulta: 'Extracción', estado: 'CONFIRMADA',
       confirmadaEn: new Date(), llegadaEn: new Date(), creadaPorId: recepcion.id },
-    { pacienteId: luis.id, inicio: enEcuador(hoy, '10:30'), tipoConsulta: 'Limpieza dental', estado: 'PENDIENTE',
+    { pacienteId: luis.id, inicio: enEcuador(hoy, '10:30'), tipoConsulta: 'Limpieza', estado: 'PENDIENTE',
       creadaPorId: recepcion.id },
     { pacienteId: sofia.id, inicio: enEcuador(hoy, '11:00'), tipoConsulta: 'Revisión', estado: 'PENDIENTE',
       creadaPorId: recepcion.id },
