@@ -1,6 +1,6 @@
 # Backend: API de la Clínica Dental Uleam
 
-Node.js + Express 5 + PostgreSQL + Prisma 6.
+Node.js + Express 5 + PostgreSQL + Prisma 7.
 
 > **Estado: fase 2 de 6.** Funcionan el login, los roles y la gestión de usuarios.
 > Las rutas de la clínica (citas, signos, consulta) llegan en la fase 3; mientras tanto
@@ -235,8 +235,9 @@ Por esa carpeta compartida, si algún día armas una imagen de Docker del backen
 | `npm run dev` | Arranca la API y la reinicia al guardar cambios |
 | `npm run db:up` / `db:down` | Enciende o apaga PostgreSQL en Docker |
 | `npm run db:migrate` | Aplica cambios del `schema.prisma` y crea una migración |
+| `npm run db:generate` | Regenera el cliente de Prisma (después de cada `db:migrate`) |
 | `npm run db:seed` | Borra los datos clínicos y carga los de prueba |
-| `npm run db:reset` | Borra toda la base, aplica las migraciones y ejecuta el seed |
+| `npm run db:reset` | Borra toda la base, aplica las migraciones, regenera el cliente y ejecuta el seed |
 | `npm run db:studio` | Abre Prisma Studio para ver y editar datos |
 | `npm test` | Pruebas unitarias (fechas, validaciones, cierre del día) |
 
@@ -263,7 +264,10 @@ Vuelve a ejecutar el seed antes de cada corrida: la prueba espera los datos inic
 backend/
 ├── prisma/
 │   ├── schema.prisma    modelo de datos (tablas, relaciones, enums)
+│   ├── migrations/      historial de cambios de la base
 │   └── seed.js          datos de prueba
+├── prisma.config.js     dirección de la base, migraciones y seed (Prisma 7)
+├── tests/               pruebas con Vitest
 ├── src/
 │   ├── config/env.js    variables de entorno (falla al arrancar si falta alguna)
 │   ├── lib/             cliente de Prisma y errores de la API
@@ -291,6 +295,13 @@ backend/
 | `recordatorios` | Avisos de cita por correo o WhatsApp |
 | `auditoria` | Quién vio o cambió qué y cuándo (solo se insertan filas) |
 
+### Prisma 7
+
+- La dirección de la base se lee de `DATABASE_URL` en `prisma.config.js` (ya no en `schema.prisma`).
+- La API se conecta a PostgreSQL con el driver `pg` a través de `@prisma/adapter-pg`.
+- `npm run db:migrate` ya **no** regenera el cliente ni ejecuta el seed: después de cambiar el
+  `schema.prisma`, corre también `npm run db:generate` (y `npm run db:seed` si quieres datos nuevos).
+
 ## Problemas comunes
 
 - **`P1001: Can't reach database server`**: PostgreSQL no está encendido. Con Docker, ejecuta `npm run db:up` y revisa que Docker Desktop esté abierto.
@@ -298,5 +309,6 @@ backend/
 - **El puerto 5432 está ocupado**: ya tienes otro PostgreSQL. Usa ese (opción B) o cambia el puerto en `docker-compose.yml` y en `DATABASE_URL`.
 - **`Falta la variable de entorno JWT_SECRET`**: copia las variables nuevas de `.env.example` a tu `.env`.
 - **`The table ... does not exist`**: faltan migraciones. Ejecuta `npm run db:migrate`.
+- **`Property 'xxx' does not exist` o un campo nuevo llega vacío**: el cliente de Prisma está desactualizado. Ejecuta `npm run db:generate` y reinicia `npm run dev`.
 - **El login dice "No se pudo conectar con el servidor"**: el backend no está encendido (`npm run dev` en `backend`).
 - **`npm` no se reconoce o no puede ejecutar scripts**: mira la sección de Node.js del README principal.

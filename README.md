@@ -117,6 +117,6 @@ Plan de trabajo:
 3. **API clínica y conexión del frontend**: pacientes y citas, enfermería y signos vitales, consulta, odontograma y recetas (hecho)
 4. **Mejoras clínicas**: fecha de nacimiento, frecuencia respiratoria y saturación, antecedentes, consentimiento informado, odontograma por caras y lista ampliada de procedimientos (hecho)
 5. **Operación**: calendario por semana y mes, recordatorios por WhatsApp y SMS, cierre automático del día y edición de pacientes (hecho)
-6. **Calidad**: pruebas con Vitest y CI en GitHub Actions (hecho); pendiente: TypeScript y Prisma 7
+6. **Calidad**: pruebas con Vitest, CI en GitHub Actions y Prisma 7 (hecho); pendiente: TypeScript
 
 Al manejar datos de salud hay que cumplir la Ley Orgánica de Protección de Datos Personales de Ecuador: HTTPS, control de acceso por rol en el servidor, registro de accesos y respaldos.

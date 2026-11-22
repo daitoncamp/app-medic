@@ -10,9 +10,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// La dirección de la base (DATABASE_URL) está en prisma.config.js
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ==================== ENUMS ====================
